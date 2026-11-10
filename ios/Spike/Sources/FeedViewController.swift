@@ -2,12 +2,14 @@ import UIKit
 import WebKit
 
 /// Collection view whose pan can run alongside the web view's own recognisers.
-/// UIScrollView is the delegate of its panGestureRecognizer, so overriding
+/// UIScrollView is the delegate of its panGestureRecognizer, so implementing
 /// this delegate method on the subclass is enough.
 final class FeedCollectionView: UICollectionView {
     var allowSimultaneousPan = true
 
-    override func gestureRecognizer(
+    // UIScrollView conforms to UIGestureRecognizerDelegate but doesn't implement
+    // this optional method, so it's added here (not overridden).
+    @objc func gestureRecognizer(
         _ g: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {

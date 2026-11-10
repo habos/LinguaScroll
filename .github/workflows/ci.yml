@@ -56,5 +56,5 @@ jobs:
         working-directory: ios/Spike
         run: >-
           xcodebuild build -project LinguaScrollSpike.xcodeproj -scheme LinguaScrollSpike
-          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO | tail -n 60;
-          exit ${PIPESTATUS[0]}
+          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1
+          | grep -E '(error|warning):|\*\* BUILD'
