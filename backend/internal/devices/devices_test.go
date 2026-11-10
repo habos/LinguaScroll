@@ -127,6 +127,9 @@ func TestRegisterTwiceReturnsSameUser(t *testing.T) {
 	if first.User.AgeBand != api.Adult || len(first.User.Learning) != 1 || !first.User.Learning[0].IsActive {
 		t.Fatalf("unexpected user: %+v", first.User)
 	}
+	if _, err := pool.Exec(context.Background(), `INSERT INTO likes (user_id, video_id) SELECT $1, id FROM videos LIMIT 1`, first.User.Id); err != nil {
+		t.Fatal(err)
+	}
 	// The app lost its token: registering again, even with other answers,
 	// gives the same user and keeps the stored languages.
 	again := registration("install-same-000001", 2000)
@@ -146,6 +149,9 @@ func TestRegisterTwiceReturnsSameUser(t *testing.T) {
 	}
 	if n := count(t, pool, `SELECT count(*) FROM users`); n != 1 {
 		t.Fatalf("%d users", n)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM likes WHERE user_id = $1`, first.User.Id); n != 1 {
+		t.Fatalf("likes after re-register: %d, want 1", n)
 	}
 	// Both tokens work.
 	c.token = first.Token
