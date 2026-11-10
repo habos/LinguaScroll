@@ -181,8 +181,8 @@ Privacy copy ("About your data"):
 | # | Spec says | This design does | Why |
 |---|---|---|---|
 | 1 | V6: "The player fills the width at the clip's aspect, from the top safe area down" | Player is the largest rect at the clip's aspect that fits between top bar and action bar, centred; action bar pinned above the tab bar | 9:16 at full width doesn't fit with the bars on any iPhone |
-| 2 | V4: report has a free `reason` | Four fixed reasons: `not_target_language`, `inappropriate`, `spam`, `other` | "Not in Spanish" is the most useful signal for catalog quality; needs backend enum |
-| 3 | V4: only `PUT /v1/videos/{id}/hide` | Add `DELETE /v1/videos/{id}/hide` for the Undo after hiding | Undo is cheap and stops accidental hides from feeling final |
+| 2 | V4: report has a free `reason` | Four fixed reasons, the existing contract enum: `not_this_language`, `inappropriate`, `spam`, `other` (backend confirmed; a `not_this_language` report also flags the clip for a language re-check) | "Not in Spanish" is the most useful signal for catalog quality; needs backend enum |
+| 3 | V4: only `PUT /v1/videos/{id}/hide` | Add `DELETE /v1/videos/{id}/hide` (204, idempotent; backend adds it in module V4) for the Undo after hiding | Undo is cheap and stops accidental hides from feeling final |
 | 4 | V6: sheets not covered | Any sheet pauses the clip first | Sheets overlap the player; it mustn't play under them |
 | 5 | V7: long-press to unsave or unlike | Same, as a context menu with Share too | Standard iOS pattern |
 
