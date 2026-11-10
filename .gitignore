@@ -1,0 +1,11 @@
+.env
+*.local
+.DS_Store
+/bin/
+/tmp/
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+.build/
+.swiftpm/
