@@ -14,6 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// AddressLimitFactor scales the per-user rate limit into the per-address
+// limit applied before authentication.
+const AddressLimitFactor = 5
+
 // ErrNotImplemented marks an endpoint whose module hasn't landed yet.
 var ErrNotImplemented = errors.New("not implemented")
 
@@ -75,8 +79,11 @@ func New(d Deps) http.Handler {
 		httpx.RequestID,
 		httpx.Recover(d.Log),
 		httpx.AccessLog(d.Log),
-		httpx.NewRateLimiter(d.RateLimitPerMinute).Middleware,
+		// Per address first (generous, so several phones behind one NAT are
+		// fine), so invented tokens can't dodge the limit; then per user.
+		httpx.NewRateLimiter(d.RateLimitPerMinute*AddressLimitFactor).ByAddress,
 		httpx.Auth(d.Tokens, publicRoute, d.Log),
+		httpx.NewRateLimiter(d.RateLimitPerMinute).ByUser,
 	)
 }
 
