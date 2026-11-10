@@ -1,0 +1,8 @@
+extends:
+  - recommended
+rules:
+  info-license: off
+  tag-description: off
+  no-server-example.com: off
+  # Errors share one `default` response in the standard error shape.
+  operation-4xx-response: off
