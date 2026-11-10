@@ -9,3 +9,6 @@ DerivedData/
 *.xcuserstate
 .build/
 .swiftpm/
+
+# XcodeGen output (regenerate with `xcodegen` in ios/Spike)
+ios/Spike/*.xcodeproj/
