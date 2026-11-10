@@ -44,3 +44,17 @@ jobs:
       - name: Build the generated Swift client
         working-directory: ios/Packages/APIClient
         run: swift build
+
+  ios-spike:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the spike project
+        working-directory: ios/Spike
+        run: brew install xcodegen && xcodegen
+      - name: Build the spike for the simulator
+        working-directory: ios/Spike
+        run: >-
+          xcodebuild build -project LinguaScrollSpike.xcodeproj -scheme LinguaScrollSpike
+          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO | tail -n 60;
+          exit ${PIPESTATUS[0]}
