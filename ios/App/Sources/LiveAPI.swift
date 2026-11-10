@@ -72,7 +72,7 @@ struct LiveAPI: SessionAPI, CatalogAPI, UserAPI {
                 _type: .init(rawValue: e.type.rawValue)!,
                 at: e.at,
                 videoId: e.videoID,
-                props: try OpenAPIObjectContainer(unvalidatedValue: e.props.mapValues(Self.any))
+                props: .init(additionalProperties: try OpenAPIObjectContainer(unvalidatedValue: e.props.mapValues(Self.any)))
             )
         }
         switch try await transport({ try await client(token).postEvents(body: .json(.init(events: payload))) }) {

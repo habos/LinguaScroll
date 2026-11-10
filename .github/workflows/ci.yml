@@ -54,6 +54,7 @@ jobs:
         run: brew install xcodegen && xcodegen
       - name: Build the spike for the simulator
         working-directory: ios/Spike
+        shell: bash # -eo pipefail, so a failed build fails the step
         run: >-
           xcodebuild build -project LinguaScrollSpike.xcodeproj -scheme LinguaScrollSpike
           -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1
@@ -76,6 +77,7 @@ jobs:
         run: brew install xcodegen && xcodegen
       - name: Build the app for the simulator
         working-directory: ios/App
+        shell: bash # -eo pipefail, so a failed build fails the step
         run: >-
           xcodebuild build -project LinguaScroll.xcodeproj -scheme LinguaScroll
           -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
