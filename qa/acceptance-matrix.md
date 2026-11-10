@@ -34,21 +34,23 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V2-10 **QA+** | `GET /v1/languages` returns 15 learnable plus native options, no token needed | A | `devices.TestPublicEndpoints` | pass @d0dd1b8 (PR #3) |
 | V2-11 **QA+** | `DELETE /v1/me` removes likes/saves/hides/blocks/reports and nulls `events.user_id` | A | `devices.TestDeleteMe`, `migrations.TestDeleteUserCascades` | pass @d0dd1b8 (PR #3) |
 
-## V3 YouTube catalog
+## V3 YouTube catalog (PR #6)
 
 | ID | Criterion | Type | Covered by | Status |
 |---|---|---|---|---|
-| V3-01 | Fake client, Spanish run over 50 IDs (20 good, 5 landscape, 5 kids, 5 `en`, 15 untagged Spanish titles) stores exactly 35 | A | | todo |
-| V3-02 | "para principiantes" title → level 1 or 2, `level_source = keyword` | A | | todo |
-| V3-03 | Search job stops at the daily unit budget and resumes after midnight UTC | A | | todo |
-| V3-04 | Clip refreshed 26 days ago is re-read; a deleted one ends `removed` with text fields cleared | A | | todo |
+| V3-01 | Fake client, Spanish run over 50 IDs (20 good, 5 landscape, 5 kids, 5 `en`, 15 untagged Spanish titles) stores exactly 35 | A | `catalog.TestSearchAcceptanceMix` | covered (PR #6) |
+| V3-02 | "para principiantes" title → level 1 or 2, `level_source = keyword` | A | `catalog.TestGuessLevel`, `TestStoredLevelFromKeywords` | covered (PR #6) |
+| V3-03 | Search job stops at the daily unit budget and resumes after midnight UTC | A | `catalog.TestQuotaStopsAndResumesAtMidnightUTC`, `TestYouTubeQuotaErrorStopsQuietly` | covered (PR #6) |
+| V3-04 | Clip refreshed 26 days ago is re-read; a deleted one ends `removed` with text fields cleared | A | `catalog.TestRefresh` | covered (PR #6); QA asked to also clear stats and re-check kids/age |
 | V3-05 | Real run with an API key: es, fr, ja each get ≥ 50 live clips in one day | M | [manual/catalog-real-run.md](manual/catalog-real-run.md) | todo |
-| V3-06 **QA+** | `es-419` audio tag counts as `es`; `en-US` tag on a Spanish search is dropped | A | | todo |
-| V3-07 **QA+** | Age-restricted and > 180 s clips are dropped | A | | todo |
-| V3-08 **QA+** | Quota counter: `search.list` = 100 units, `videos.list` = 1 unit per ≤ 50 IDs | A | | todo |
-| V3-09 **QA+** | No test or CI path calls the real YouTube API (fake used when `FAKE_VENDORS=1` or no key) | A | | todo |
-| V3-10 **QA+** | Level refinement: 20 completed views → level = rounded average viewer level, `level_source = engagement` | A | | todo |
-| V3-11 **QA+** | `sql/compliance.sql` returns 0 rows after a refresh run | A | | todo |
+| V3-06 **QA+** | `es-419` audio tag counts as `es`; `en-US` tag on a Spanish search is dropped | A | `catalog.TestClassifyLanguage` | covered (PR #6) |
+| V3-07 **QA+** | Age-restricted and > 180 s clips are dropped | A | `catalog.TestKeepFilters` | covered (PR #6); refresh path missing kids/age |
+| V3-08 **QA+** | Quota counter: `search.list` = 100 units, `videos.list` = 1 unit per ≤ 50 IDs | A | `catalog.TestSearchAcceptanceMix`, `youtube.TestHTTPClient` | covered (PR #6) |
+| V3-09 **QA+** | No test or CI path calls the real YouTube API (fake used when `FAKE_VENDORS=1` or no key) | A | `youtube.TestHTTPClient` (httptest), config tests | covered (PR #6) |
+| V3-10 **QA+** | Level refinement: 20 completed views → level = rounded average viewer level, `level_source = engagement` | A | `catalog.TestRefineLevels` | covered (PR #6) |
+| V3-12 **QA+** | Refresh removes clips that became made-for-kids or age-restricted | A | | gap (asked on PR #6) |
+| V3-13 **QA+** | Removed clips keep only IDs: stats, category, publish time cleared (Y9) | A | `qa/sql/compliance.sql` Y9 | gap (asked on PR #6) |
+| V3-11 **QA+** | `sql/compliance.sql` returns 0 rows after a refresh run | A | manual run by backend thread; CI after fake refresh: todo | covered (PR #6) |
 
 ## V4 Feed, likes, saves and events
 

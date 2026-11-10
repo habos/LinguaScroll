@@ -8,14 +8,18 @@ SELECT 'Y8 stale live clip' AS check, id, youtube_video_id, refreshed_at
  WHERE source = 'youtube' AND status = 'live'
    AND refreshed_at < now() - interval '30 days';
 
--- Y9: removed clips that still hold YouTube text fields.
+-- Y9: removed clips that still hold YouTube API data (text, stats,
+-- category, publish time). Only IDs may stay.
 SELECT 'Y9 removed clip keeps text' AS check, id, youtube_video_id
   FROM videos
  WHERE source = 'youtube' AND status = 'removed'
    AND (youtube_title IS NOT NULL
         OR youtube_description IS NOT NULL
         OR youtube_channel_title IS NOT NULL
-        OR cardinality(youtube_tags) > 0);
+        OR cardinality(youtube_tags) > 0
+        OR youtube_category_id IS NOT NULL
+        OR published_at IS NOT NULL
+        OR view_count <> 0 OR like_count <> 0);
 
 -- Y11: live clips outside the content filters stored in the table
 -- (longer than 180 s, or not vertical: aspect = width / height).

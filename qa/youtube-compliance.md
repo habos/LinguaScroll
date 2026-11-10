@@ -12,7 +12,7 @@ Any failure here blocks a release or TestFlight build. Rules come from `.claude/
 | Y6 | Referer: `loadHTMLString` with baseURL `https://<bundle id lowercased>` | Unit test on the player config | V6-10 |
 | Y7 | YouTube branding and controls not hidden; channel name links out to YouTube | Device pass | V6-01 |
 | Y8 | Stored API data refreshed or deleted within 30 days | `sql/compliance.sql` returns 0 rows | V3-04, V3-11 |
-| Y9 | Removed clips have title, description, tags, channel title cleared | `sql/compliance.sql` | V3-04 |
+| Y9 | Removed clips keep only IDs: title, description, tags, channel title, category, publish time and stats cleared | `sql/compliance.sql` | V3-04 |
 | Y10 | Only IDs + needed metadata stored; no thumbnails or media stored | Schema review; no image columns; V7 uses public thumbnail URL | V7-06 |
 | Y11 | Content filters: embeddable, not for kids, not age-restricted, ≤ 180 s, vertical | V3 tests; `sql/compliance.sql` | V3-01, V3-07 |
 | Y12 | `safeSearch=strict` on every search | V3 test asserting the fake client received it | V3-01 |
