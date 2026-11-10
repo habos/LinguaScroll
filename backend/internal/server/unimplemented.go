@@ -29,10 +29,6 @@ func (Unimplemented) PostEvents(context.Context, api.PostEventsRequestObject) (a
 	return nil, ErrNotImplemented
 }
 
-func (Unimplemented) GetFeed(context.Context, api.GetFeedRequestObject) (api.GetFeedResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
 func (Unimplemented) ListLanguages(context.Context, api.ListLanguagesRequestObject) (api.ListLanguagesResponseObject, error) {
 	return nil, ErrNotImplemented
 }

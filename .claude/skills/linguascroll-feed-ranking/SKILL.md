@@ -30,6 +30,20 @@ Goal: for one device in one language, pick clips the learner will watch to the e
 6. Record served clips in `feed_seen`. If fewer than a page remain, allow clips served more than 7 days ago.
 7. Page size `feed.page_size` (10). Cursor is opaque; no other per-request server state.
 
+## Where it lives (implemented 2026-11-10)
+
+- `backend/internal/feed`: `rank.go` (pure: `Score`, signal helpers, `Rank`, `Assemble`), `service.go` (SQL + page assembly), `cursor.go`, `stats.go` (`feed_stats` job every 10 min), `config.go` (reads `feed.*`).
+- `server/feed.go` maps it to `GET /v1/feed`. Errors: 400 `unknown_language`, 400 `bad_cursor`. An empty page with `next_cursor: null` means nothing is left to serve.
+- `feed_stats` writes `video_stats.views_pct`, `likes_pct`, `base_score` for every live clip (creating the row if missing). The events rollup owns the counters, so it must upsert, never plain-insert.
+- Implementation choices the formula above leaves open:
+  - h = hides / (impressions + 5), capped at 1, so one early hide doesn't bury a clip.
+  - Explore pool is random from the whole filtered set (not the top 400), so clips with low base score still get views. Explore slots per page = page_size x share rounded randomly (1 or 2 at defaults), never the first slot.
+  - k = 0.5 and g come from the device's last 100 views (>= 2 s, last 180 days); k = 0.5 counts only those within 30 days.
+  - When no clip fits the rules, the music cap is relaxed first, then channel spacing, so a small catalog still fills a page.
+- Extra keys: `feed.explore_max_views` (50), `feed.candidates` (400).
+- Tests: `go test ./internal/feed/`; `FEED_LOAD_TEST=1` runs the 20,000-clip latency check (p95 about 45 ms in a cloud container on 2026-11-10).
+- Tuning log: `docs/feed-tuning-log.md`.
+
 ## Level
 
 - Level comes from the source hint, then metadata keywords, else null. Nightly, once a clip has 20 completed views, its level becomes the rounded average level of those viewers (`level_source = engagement`).
