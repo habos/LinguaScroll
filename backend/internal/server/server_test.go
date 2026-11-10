@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -112,5 +113,20 @@ func TestRateLimit(t *testing.T) {
 	status, e := do(t, "GET", ts.URL+"/v1/me/likes", token)
 	if status != 429 || e.Error.Code != "rate_limited" {
 		t.Fatalf("4th request: %d %+v, want 429 rate_limited", status, e)
+	}
+}
+
+func TestRateLimitIgnoresMadeUpTokens(t *testing.T) {
+	ts, _ := newServer(t, 2) // per address: 2 * AddressLimitFactor
+	limit := 2 * server.AddressLimitFactor
+	got429 := false
+	for i := range limit + 1 {
+		status, e := do(t, "GET", ts.URL+"/v1/me/likes", "made-up-"+strconv.Itoa(i))
+		if status == 429 && e.Error.Code == "rate_limited" {
+			got429 = true
+		}
+	}
+	if !got429 {
+		t.Fatalf("%d distinct bogus tokens from one address never hit 429", limit+1)
 	}
 }
