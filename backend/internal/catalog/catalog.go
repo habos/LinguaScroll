@@ -62,10 +62,17 @@ func (s *Service) cfg() appconfig.Store { return appconfig.Store{DB: s.DB} }
 
 // reserve books units against today's budget, or returns ErrQuotaSpent.
 func (s *Service) reserve(ctx context.Context, units int) error {
+	return s.reserveWithin(ctx, units, 0)
+}
+
+// reserveWithin is reserve with extra units on top of the configured budget,
+// never past YouTube's own daily cap.
+func (s *Service) reserveWithin(ctx context.Context, units, extra int) error {
 	budget, err := appconfig.Get(ctx, s.cfg(), "youtube.daily_quota_units", 9000)
 	if err != nil {
 		return err
 	}
+	budget = min(budget+extra, YouTubeDailyCap)
 	var total int
 	err = s.DB.QueryRow(ctx, `
 		INSERT INTO youtube_quota AS q (day, units) SELECT $1::date, $2::int WHERE $2::int <= $3::int
@@ -281,11 +288,15 @@ func ClassifyLanguage(v youtube.Video, target string, seedChannels map[string]bo
 }
 
 func detectText(v youtube.Video) string {
-	desc := v.Description
+	return strings.Join(append([]string{v.Title, shortDescription(v.Description)}, v.Tags...), "\n")
+}
+
+// shortDescription is the part of a description we use and store.
+func shortDescription(desc string) string {
 	if r := []rune(desc); len(r) > descriptionChars {
-		desc = string(r[:descriptionChars])
+		return string(r[:descriptionChars])
 	}
-	return strings.Join(append([]string{v.Title, desc}, v.Tags...), "\n")
+	return desc
 }
 
 func primarySubtag(code string) string {
@@ -413,7 +424,7 @@ func (s *Service) store(ctx context.Context, src source, vids []youtube.Video) (
 			                    has_captions, status, published_at, refreshed_at)
 			VALUES ($1, 'youtube', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'live', $19, now())
 			ON CONFLICT (youtube_video_id) DO NOTHING`,
-			uuid.Must(uuid.NewV7()), v.ID, v.ChannelID, v.ChannelTitle, v.Title, v.Description, v.CategoryID,
+			uuid.Must(uuid.NewV7()), v.ID, v.ChannelID, v.ChannelTitle, v.Title, shortDescription(v.Description), v.CategoryID,
 			nonNil(v.Tags), c.Language, c.Source, c.Confidence, level, ls, v.DurationMs,
 			float64(v.EmbedWidth)/float64(v.EmbedHeight), v.ViewCount, v.LikeCount, v.HasCaptions, v.PublishedAt)
 		if err != nil {
@@ -422,6 +433,27 @@ func (s *Service) store(ctx context.Context, src source, vids []youtube.Video) (
 		kept += int(tag.RowsAffected())
 	}
 	return kept, nil
+}
+
+// YouTubeDailyCap is the project's daily quota at YouTube. Refresh may use
+// RefreshHeadroom units above youtube.daily_quota_units, so the 30-day rule
+// never waits on search leaving budget.
+const (
+	YouTubeDailyCap = 10_000
+	RefreshHeadroom = 1_000
+)
+
+// ClearYouTubeData is the SET list that takes a clip out of the feed and
+// drops the YouTube API data we may not keep past 30 days. The ID stays.
+// Use it for every removal (refresh, reports).
+const ClearYouTubeData = `status = 'removed', refreshed_at = now(),
+	youtube_title = NULL, youtube_description = NULL, youtube_tags = '{}', youtube_channel_title = NULL,
+	youtube_category_id = NULL, published_at = NULL, view_count = 0, like_count = 0`
+
+// stillAllowed is Keep without the checks that can't change after upload
+// (duration and aspect).
+func stillAllowed(v youtube.Video) bool {
+	return v.Embeddable && v.Public && !v.MadeForKids && !v.AgeRestricted
 }
 
 // RejectTTL is how long a rejected ID is skipped before it may be checked
@@ -463,7 +495,7 @@ func (s *Service) Refresh(ctx context.Context) (refreshed, removed int, err erro
 		if err != nil || len(ids) == 0 {
 			return refreshed, removed, err
 		}
-		if err := s.reserve(ctx, youtube.VideosCost); err != nil {
+		if err := s.reserveWithin(ctx, youtube.VideosCost, RefreshHeadroom); err != nil {
 			if errors.Is(err, ErrQuotaSpent) {
 				return refreshed, removed, nil // tomorrow
 			}
@@ -479,11 +511,12 @@ func (s *Service) Refresh(ctx context.Context) (refreshed, removed int, err erro
 		}
 		for _, id := range ids {
 			v, ok := got[id]
-			if !ok || !v.Embeddable || !v.Public {
-				if _, err := s.DB.Exec(ctx, `
-					UPDATE videos SET status = 'removed', hold_reason = 'youtube_unavailable', refreshed_at = now(),
-					       youtube_title = NULL, youtube_description = NULL, youtube_tags = '{}', youtube_channel_title = NULL
-					 WHERE youtube_video_id = $1`, id); err != nil {
+			if !ok || !stillAllowed(v) {
+				reason := "youtube_filters" // made for kids or age-restricted since
+				if !ok || !v.Embeddable || !v.Public {
+					reason = "youtube_unavailable"
+				}
+				if _, err := s.DB.Exec(ctx, `UPDATE videos SET `+ClearYouTubeData+`, hold_reason = $2 WHERE youtube_video_id = $1`, id, reason); err != nil {
 					return refreshed, removed, err
 				}
 				removed++
@@ -493,7 +526,7 @@ func (s *Service) Refresh(ctx context.Context) (refreshed, removed int, err erro
 				UPDATE videos SET youtube_title = $2, youtube_description = $3, youtube_tags = $4, youtube_channel_title = $5,
 				       youtube_category_id = $6, view_count = $7, like_count = $8, has_captions = $9, refreshed_at = now()
 				 WHERE youtube_video_id = $1`,
-				id, v.Title, v.Description, nonNil(v.Tags), v.ChannelTitle, v.CategoryID, v.ViewCount, v.LikeCount, v.HasCaptions); err != nil {
+				id, v.Title, shortDescription(v.Description), nonNil(v.Tags), v.ChannelTitle, v.CategoryID, v.ViewCount, v.LikeCount, v.HasCaptions); err != nil {
 				return refreshed, removed, err
 			}
 			refreshed++

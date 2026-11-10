@@ -2,6 +2,7 @@ package catalog_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -287,7 +288,7 @@ func TestPickSourceFavoursLanguagesWithFewerSearchesAndClips(t *testing.T) {
 func TestRefresh(t *testing.T) {
 	s, yt, pool, _ := setup(t, esQuery("q", nil))
 	ctx := context.Background()
-	for _, id := range []string{"keep", "gone", "private", "recent"} {
+	for _, id := range []string{"keep", "gone", "private", "kids", "adult", "recent"} {
 		v := fake.Video(id, "Hola "+id)
 		v.DefaultAudioLanguage = "es"
 		v.Tags = []string{"tag"}
@@ -301,8 +302,18 @@ func TestRefresh(t *testing.T) {
 	}
 	yt.Remove("gone")
 	yt.Update("private", func(v *youtube.Video) { v.Public = false })
-	yt.Update("keep", func(v *youtube.Video) { v.ViewCount = 999_999; v.HasCaptions = false })
+	yt.Update("kids", func(v *youtube.Video) { v.MadeForKids = true })
+	yt.Update("adult", func(v *youtube.Video) { v.AgeRestricted = true })
+	yt.Update("keep", func(v *youtube.Video) {
+		v.ViewCount = 999_999
+		v.HasCaptions = false
+		v.Description = strings.Repeat("é", 2000)
+	})
 	calls := len(yt.VideoIDs)
+	// Search spent the whole budget: refresh still runs on the headroom.
+	if _, err := pool.Exec(ctx, `UPDATE youtube_quota SET units = 9000`); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := pool.Exec(ctx, `INSERT INTO youtube_rejects VALUES ('old', 'filters', now() - interval '31 days'), ('new', 'language', now())`); err != nil {
 		t.Fatal(err)
@@ -314,23 +325,32 @@ func TestRefresh(t *testing.T) {
 	if n := count(t, pool, `SELECT count(*) FROM youtube_rejects WHERE youtube_video_id IN ('old', 'new')`); n != 1 {
 		t.Errorf("expired rejects not pruned: %d left", n)
 	}
-	if refreshed != 1 || removed != 2 {
+	if refreshed != 1 || removed != 4 {
 		t.Fatalf("refreshed %d removed %d", refreshed, removed)
 	}
-	if len(yt.VideoIDs) != calls+1 || len(yt.VideoIDs[calls]) != 3 {
-		t.Fatalf("expected one videos.list call for the 3 stale clips, got %v", yt.VideoIDs[calls:])
+	if len(yt.VideoIDs) != calls+1 || len(yt.VideoIDs[calls]) != 5 {
+		t.Fatalf("expected one videos.list call for the 5 stale clips, got %v", yt.VideoIDs[calls:])
+	}
+	if used, _ := s.UnitsUsedToday(ctx); used != 9001 {
+		t.Errorf("units used = %d, want 9001", used)
 	}
 	var views int64
 	var captions bool
-	if err := pool.QueryRow(ctx, `SELECT view_count, has_captions FROM videos WHERE youtube_video_id = 'keep' AND status = 'live' AND refreshed_at > now() - interval '1 minute'`).Scan(&views, &captions); err != nil {
+	var descLen int
+	if err := pool.QueryRow(ctx, `SELECT view_count, has_captions, char_length(youtube_description) FROM videos WHERE youtube_video_id = 'keep' AND status = 'live' AND refreshed_at > now() - interval '1 minute'`).Scan(&views, &captions, &descLen); err != nil {
 		t.Fatal(err)
 	}
-	if views != 999_999 || captions {
-		t.Errorf("stats not updated: %d %v", views, captions)
+	if views != 999_999 || captions || descLen != 500 {
+		t.Errorf("not updated: views %d captions %v description %d chars", views, captions, descLen)
 	}
-	if n := count(t, pool, `SELECT count(*) FROM videos WHERE youtube_video_id IN ('gone', 'private') AND status = 'removed'
-		AND youtube_title IS NULL AND youtube_description IS NULL AND youtube_channel_title IS NULL AND youtube_tags = '{}'`); n != 2 {
-		t.Fatalf("%d removed clips with text cleared, want 2", n)
+	if n := count(t, pool, `SELECT count(*) FROM videos WHERE youtube_video_id IN ('gone', 'private', 'kids', 'adult') AND status = 'removed'
+		AND youtube_title IS NULL AND youtube_description IS NULL AND youtube_channel_title IS NULL AND youtube_tags = '{}'
+		AND youtube_category_id IS NULL AND published_at IS NULL AND view_count = 0 AND like_count = 0`); n != 4 {
+		t.Fatalf("%d removed clips with API data cleared, want 4", n)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM videos WHERE (youtube_video_id IN ('gone', 'private') AND hold_reason = 'youtube_unavailable')
+		OR (youtube_video_id IN ('kids', 'adult') AND hold_reason = 'youtube_filters')`); n != 4 {
+		t.Errorf("hold reasons wrong: %d of 4 match", n)
 	}
 	if n := count(t, pool, `SELECT count(*) FROM videos WHERE youtube_video_id = 'recent' AND refreshed_at > now() - interval '1 minute'`); n != 1 {
 		t.Error("recent clip touched")
