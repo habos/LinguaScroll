@@ -13,24 +13,26 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V1-03 | `openapi.yaml` lints clean; `make gen` gives the Go interface and a Swift package that compiles | A | CI `make gen-check`, `make lint`, `ios-client` job | pass @1d0595d |
 | V1-04 | Protected route without a token returns 401 in the error shape | A | `server` tests (public vs protected, 401 missing/bad/expired) | pass @1d0595d |
 | V1-05 | CI is green | A | GitHub Actions on PR #1 | pass @1d0595d |
-| V1-06 **QA+** | Bogus bearer tokens from one address still hit the rate limit (429) | A | `TestRateLimitIgnoresMadeUpTokens` (0bb44a7, not yet on main) | fail on main @70266c4; fix pending in PR #3 |
-| V1-07 **QA+** | `ensure_event_partitions` keeps working when `events_default` has rows | A | `TestEventPartitionsAbsorbStrayDefaultRows` (0bb44a7, not yet on main) | fail on main @70266c4; fix pending in PR #3 |
+| V1-06 **QA+** | Bogus bearer tokens from one address still hit the rate limit (429) | A | `server.TestRateLimitIgnoresMadeUpTokens` | pass @d0dd1b8 (PR #3) |
+| V1-07 **QA+** | `ensure_event_partitions` keeps working when `events_default` has rows | A | `migrations.TestEventPartitionsAbsorbStrayDefaultRows` (migration 00003) | pass @d0dd1b8 (PR #3) |
+| V1-08 **QA+** | Before hosting: rate limit keys on the real client IP behind the proxy (`Fly-Client-IP`), not the proxy's address | A | | gap (pre-deploy) |
+| V1-09 **QA+** | Expired `sessions` rows are cleaned up | A | | gap |
 
-## V2 Devices and languages
+## V2 Devices and languages (PR #3)
 
 | ID | Criterion | Type | Covered by | Status |
 |---|---|---|---|---|
-| V2-01 | Birth year 2016 gets 403 `age_blocked` and no row | A | | todo |
-| V2-02 | Registering twice with the same install ID returns the same user ID | A | | todo |
-| V2-03 | Adding Japanese at level 3 then removing Spanish leaves one active language | A | | todo |
-| V2-04 | Removing the last language returns 422 | A | | todo |
-| V2-05 | After `DELETE /v1/me` the old token returns 401 | A | | todo |
-| V2-06 **QA+** | Birth year is never stored (no column, not in logs) | A | | todo |
-| V2-07 **QA+** | Age boundaries: exactly 13 → `teen`, 17 → `teen`, 18 → `adult`, 12 → 403 | A | | todo |
-| V2-08 **QA+** | Re-register keeps existing languages and likes; old token still valid or cleanly replaced | A | | todo |
-| V2-09 **QA+** | Level outside 1 to 6, unknown language code, non-learnable language → 400/422 in error shape | A | | todo |
-| V2-10 **QA+** | `GET /v1/languages` returns 15 learnable plus native options, no token needed | A | | todo |
-| V2-11 **QA+** | `DELETE /v1/me` removes likes/saves/hides/blocks/reports and nulls `events.user_id` | A | (schema cascade test exists in V1) | todo |
+| V2-01 | Birth year 2016 gets 403 `age_blocked` and no row | A | `devices.TestUnder13IsBlockedAndNothingStored` | pass @d0dd1b8 (PR #3) |
+| V2-02 | Registering twice with the same install ID returns the same user ID | A | `devices.TestRegisterTwiceReturnsSameUser` | pass @d0dd1b8 (PR #3) |
+| V2-03 | Adding Japanese at level 3 then removing Spanish leaves one active language | A | `devices.TestLanguages` | pass @d0dd1b8 (PR #3) |
+| V2-04 | Removing the last language returns 422 | A | `devices.TestLanguages` | pass @d0dd1b8 (PR #3) |
+| V2-05 | After `DELETE /v1/me` the old token returns 401 | A | `devices.TestDeleteMe` | pass @d0dd1b8 (PR #3) |
+| V2-06 **QA+** | Birth year is never stored (no column, not in logs) | A | `devices.TestBirthYearIsNotStored` | pass @d0dd1b8 (PR #3) |
+| V2-07 **QA+** | Age boundaries: exactly 13 → `teen`, 17 → `teen`, 18 → `adult`, 12 → 403 | A | `devices.TestAgeBand` | pass @d0dd1b8 (PR #3) |
+| V2-08 **QA+** | Re-register keeps existing languages and likes; old token still valid or cleanly replaced | A | `devices.TestRegisterTwiceReturnsSameUser` | pass @d0dd1b8 (PR #3) |
+| V2-09 **QA+** | Level outside 1 to 6, unknown language code, non-learnable language → 400/422 in error shape | A | `devices.TestRegisterValidation`, `devices.TestLanguages` | pass @d0dd1b8 (PR #3) |
+| V2-10 **QA+** | `GET /v1/languages` returns 15 learnable plus native options, no token needed | A | `devices.TestPublicEndpoints` | pass @d0dd1b8 (PR #3) |
+| V2-11 **QA+** | `DELETE /v1/me` removes likes/saves/hides/blocks/reports and nulls `events.user_id` | A | `devices.TestDeleteMe`, `migrations.TestDeleteUserCascades` | pass @d0dd1b8 (PR #3) |
 
 ## V3 YouTube catalog
 
