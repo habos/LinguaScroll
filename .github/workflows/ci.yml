@@ -58,3 +58,26 @@ jobs:
           xcodebuild build -project LinguaScrollSpike.xcodeproj -scheme LinguaScrollSpike
           -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1
           | grep -E '(error|warning):|\*\* BUILD'
+
+  ios-core:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core unit tests (install ID, 401 recovery, event retry)
+        working-directory: ios/Packages/Core
+        run: swift test
+
+  ios-app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the app project
+        working-directory: ios/App
+        run: brew install xcodegen && xcodegen
+      - name: Build the app for the simulator
+        working-directory: ios/App
+        run: >-
+          xcodebuild build -project LinguaScroll.xcodeproj -scheme LinguaScroll
+          -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
+          CODE_SIGNING_ALLOWED=NO 2>&1
+          | grep -E '(error|warning):|\*\* BUILD'
