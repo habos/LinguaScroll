@@ -240,9 +240,11 @@ func TestHiddenBlockedRemovedAndOffLevelNeverReturn(t *testing.T) {
 	f.exec(`INSERT INTO channel_blocks (user_id, youtube_channel_id) VALUES ($1, 'UCblock')`, user)
 	f.catalog(40, 20)
 
+	// 3 pages stay within the 41 eligible clips, so no fallback stage
+	// widens the level.
 	found := map[uuid.UUID]bool{}
 	cur := feed.Cursor{}
-	for range 5 {
+	for range 3 {
 		p := f.page(user, cur)
 		for _, it := range p.Items {
 			found[it.ID] = true
@@ -262,31 +264,69 @@ func TestHiddenBlockedRemovedAndOffLevelNeverReturn(t *testing.T) {
 	}
 }
 
-func TestSeenWindowFallback(t *testing.T) {
+func TestFallbackLadder(t *testing.T) {
 	f := newFixture(t)
-	f.catalog(25, 25)
+	ids := f.catalog(20, 20)
 	user := f.newUser(nil)
-	total := 0
+	served := map[uuid.UUID]bool{}
 	cur := feed.Cursor{}
-	for range 3 {
+	for range 2 {
 		p := f.page(user, cur)
-		total += len(p.Items)
-		if p.Next != nil {
-			cur = *p.Next
+		for _, it := range p.Items {
+			served[it.ID] = true
 		}
+		cur = *p.Next
 	}
-	if total != 25 {
-		t.Fatalf("served %d of 25 clips over 3 pages", total)
+	if len(served) != 20 {
+		t.Fatalf("served %d distinct of 20 clips over 2 pages", len(served))
 	}
-	// Everything served 2 days ago: nothing to show.
-	f.exec(`UPDATE feed_seen SET served_at = now() - interval '2 days' WHERE user_id = $1`, user)
-	if p := f.page(user, cur); len(p.Items) != 0 || p.Next != nil {
-		t.Fatalf("2 days later: %d items, next %v; want empty page, nil cursor", len(p.Items), p.Next)
+	// The device completed 15 of them and reported one.
+	for _, id := range ids[:15] {
+		f.exec(`INSERT INTO events (id, user_id, video_id, type, at, props)
+		        VALUES ($1, $2, $3, 'view_end', now(), '{"watched_ms": 20000, "completed": true}')`, uuid.New(), user, id)
 	}
-	// Served 8 days ago: allowed again because fewer than a page are fresh.
+	f.exec(`INSERT INTO reports (id, reporter_user_id, target_id, reason) VALUES ($1, $2, $3, 'spam')`, uuid.New(), user, ids[19])
+
+	// Served 8 days ago: back via the 7-day window (completed or not).
 	f.exec(`UPDATE feed_seen SET served_at = now() - interval '8 days' WHERE user_id = $1`, user)
 	if p := f.page(user, cur); len(p.Items) != 10 {
 		t.Fatalf("8 days later: %d items, want 10", len(p.Items))
+	}
+	// Served 2 days ago: only the 4 clips neither completed nor reported.
+	f.exec(`UPDATE feed_seen SET served_at = now() - interval '2 days' WHERE user_id = $1`, user)
+	p := f.page(user, cur)
+	if len(p.Items) != 4 || p.Next == nil {
+		t.Fatalf("2 days later: %d items, next %v; want the 4 uncompleted clips", len(p.Items), p.Next)
+	}
+	want := map[uuid.UUID]bool{ids[15]: true, ids[16]: true, ids[17]: true, ids[18]: true}
+	for _, it := range p.Items {
+		if !want[it.ID] {
+			t.Fatalf("served %s, want only uncompleted, unreported clips", it.ID)
+		}
+	}
+	// All four seen again now and completed: the feed really is empty.
+	for id := range want {
+		f.exec(`INSERT INTO events (id, user_id, video_id, type, at, props)
+		        VALUES ($1, $2, $3, 'view_end', now(), '{"watched_ms": 20000, "completed": true}')`, uuid.New(), user, id)
+	}
+	if p := f.page(user, cur); len(p.Items) != 0 || p.Next != nil {
+		t.Fatalf("all completed: %d items, next %v; want empty page, nil cursor", len(p.Items), p.Next)
+	}
+}
+
+func TestLevelWidensBeforeFeedRunsOut(t *testing.T) {
+	f := newFixture(t)
+	user := f.newUser(ptrTo(1))
+	for i := range 12 {
+		lvl := 5
+		if i < 3 {
+			lvl = 1
+		}
+		f.addClip(clipSpec{channel: fmt.Sprintf("UC%02d", i), level: ptrTo(lvl), ytViews: 1000, views: 100, done: 50})
+	}
+	f.refresh()
+	if p := f.page(user, feed.Cursor{}); len(p.Items) != 10 {
+		t.Fatalf("level 1 device with 3 level-1 clips: %d items, want a full page from wider levels", len(p.Items))
 	}
 }
 

@@ -15,12 +15,28 @@ import (
 // ErrUnknownLanguage means the language isn't a learnable language code.
 var ErrUnknownLanguage = errors.New("unknown language")
 
-// Seen windows: a clip served to a device is held back for 30 days, or 7
-// when fewer than a page of fresh clips remain.
-const (
-	seenWindow         = 30 * 24 * time.Hour
-	seenWindowFallback = 7 * 24 * time.Hour
-)
+// stage is one rung of the fallback ladder. The feed adds stages until it
+// has a page of candidates, so the "out of clips" screen is nearly
+// unreachable:
+//  1. level window, not served in 30 days (the normal feed);
+//  2. level window, not served in 7 days;
+//  3. any level, not served in 7 days;
+//  4. any level, any time, but never a clip this device completed.
+//
+// Hidden clips, blocked channels and clips this device reported never
+// come back at any stage.
+type stage struct {
+	anyLevel   bool
+	seen       time.Duration // 0 = no seen window
+	noComplete bool
+}
+
+var ladder = []stage{
+	{seen: 30 * 24 * time.Hour},
+	{seen: 7 * 24 * time.Hour},
+	{anyLevel: true, seen: 7 * 24 * time.Hour},
+	{anyLevel: true, noComplete: true},
+}
 
 // Service serves feed pages.
 type Service struct {
@@ -80,16 +96,32 @@ func (s Service) Next(ctx context.Context, user uuid.UUID, language string, cur 
 	rng := s.rng()
 	exploreN := ExploreSlots(cfg.PageSize, cfg.ExploreShare, rng)
 
-	ranked, explore, err := s.candidates(ctx, user, language, prof.Level, cfg, exploreN, seenWindow)
-	if err != nil {
-		return Page{}, err
-	}
-	if len(ranked) < cfg.PageSize {
-		if ranked, explore, err = s.candidates(ctx, user, language, prof.Level, cfg, exploreN, seenWindowFallback); err != nil {
+	// Walk the ladder until there's a page of candidates. Each stage's
+	// clips are ranked on their own and queued after the earlier stages',
+	// so unseen clips at the device's level always come first.
+	var ranked, explore []Clip
+	have := map[uuid.UUID]bool{}
+	for i, st := range ladder {
+		r, e, err := s.candidates(ctx, user, language, prof.Level, cfg, exploreN, st)
+		if err != nil {
 			return Page{}, err
 		}
+		if i == 0 {
+			explore = e
+		}
+		fresh := r[:0]
+		for _, c := range r {
+			if !have[c.ID] {
+				have[c.ID] = true
+				fresh = append(fresh, c)
+			}
+		}
+		Rank(fresh, prof, cfg.Weights, now, rng)
+		ranked = append(ranked, fresh...)
+		if len(ranked) >= cfg.PageSize {
+			break
+		}
 	}
-	Rank(ranked, prof, cfg.Weights, now, rng)
 	clips := Assemble(ranked, explore, cfg.PageSize, exploreN, cfg.ChannelSpacing, cfg.MusicCap, cur.Recent, rng)
 	if len(clips) == 0 {
 		return Page{Items: []Item{}}, nil
@@ -185,9 +217,9 @@ func (s Service) profile(ctx context.Context, user uuid.UUID, language string) (
 
 // candidatesSQL filters once and takes both pools from the same set: the
 // top $7 by base score, and $9 random clips with fewer than $8 in-app views
-// for explore. $1 user, $2 language, $3..$4 level range, $5..$6 seen cutoff
-// and level-unknown flag are explicit values (no "$x IS NULL OR" clauses),
-// so Postgres's cached generic plan stays good.
+// for explore. $1 user, $2 language, $3..$4 level range, $5 seen cutoff,
+// $9 skip completed. Level and seen bounds are explicit values (no
+// "$x IS NULL OR" clauses), so Postgres's cached generic plan stays good.
 const candidatesSQL = `
 	WITH c AS MATERIALIZED (
 		SELECT v.id, v.youtube_video_id, coalesce(v.youtube_channel_id, '') AS channel_id,
@@ -204,7 +236,12 @@ const candidatesSQL = `
 		   AND (v.level IS NULL OR v.level BETWEEN $3 AND $4)
 		   AND NOT EXISTS (SELECT 1 FROM hides h WHERE h.user_id = $1 AND h.video_id = v.id)
 		   AND NOT EXISTS (SELECT 1 FROM channel_blocks b WHERE b.user_id = $1 AND b.youtube_channel_id = v.youtube_channel_id)
+		   AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.reporter_user_id = $1 AND r.target_id = v.id)
 		   AND NOT EXISTS (SELECT 1 FROM feed_seen f WHERE f.user_id = $1 AND f.video_id = v.id AND f.served_at > $5)
+		   AND NOT ($9::bool AND EXISTS (
+		           SELECT 1 FROM events e
+		            WHERE e.user_id = $1 AND e.video_id = v.id AND e.type = 'view_end'
+		              AND e.props->'completed' = 'true'::jsonb))
 	)
 	(SELECT *, false AS explore FROM c ORDER BY base_score DESC, id LIMIT $6)
 	UNION ALL
@@ -212,13 +249,17 @@ const candidatesSQL = `
 
 // candidates returns the top cfg.Candidates by base score, and a random
 // explore pool of clips with few in-app views.
-func (s Service) candidates(ctx context.Context, user uuid.UUID, language string, level *int, cfg Config, exploreN int, seen time.Duration) (ranked, explore []Clip, err error) {
+func (s Service) candidates(ctx context.Context, user uuid.UUID, language string, level *int, cfg Config, exploreN int, st stage) (ranked, explore []Clip, err error) {
 	lo, hi := 1, 6
-	if level != nil {
+	if level != nil && !st.anyLevel {
 		lo, hi = *level-cfg.LevelWindow, *level+cfg.LevelWindow
 	}
-	rows, err := s.DB.Query(ctx, candidatesSQL, user, language, lo, hi, s.now().Add(-seen),
-		cfg.Candidates, cfg.ExploreMaxViews, exploreN*5)
+	cutoff := time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC) // no clip was served after this: none held back
+	if st.seen > 0 {
+		cutoff = s.now().Add(-st.seen)
+	}
+	rows, err := s.DB.Query(ctx, candidatesSQL, user, language, lo, hi, cutoff,
+		cfg.Candidates, cfg.ExploreMaxViews, exploreN*5, st.noComplete)
 	if err != nil {
 		return nil, nil, fmt.Errorf("feed candidates: %w", err)
 	}

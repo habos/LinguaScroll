@@ -27,12 +27,13 @@ Goal: for one device in one language, pick clips the learner will watch to the e
 3. New device: no k, g or c history, so YouTube quality and global completion carry the first pages. That's intended.
 4. Explore: `feed.explore_share` (0.15) of each page is clips with < 50 in-app views, random from candidates.
 5. Diversity: at most one clip per channel in any `feed.channel_spacing` (5) consecutive items, across page boundaries (carry the last 4 channel IDs in the cursor). Music category (10) capped at `feed.music_cap` (0.2) of a page.
-6. Record served clips in `feed_seen`. If fewer than a page remain, allow clips served more than 7 days ago.
+6. Record served clips in `feed_seen`. If fewer than a page remain, widen step by step until there's a page (each stage ranked on its own, queued after the earlier ones): (a) level window, unseen 30 days; (b) level window, unseen 7 days; (c) any level, unseen 7 days; (d) any level, any time, but never a clip this device completed. Hidden clips, blocked channels and clips this device reported never return. An empty page only means the device completed everything.
 7. Page size `feed.page_size` (10). Cursor is opaque; no other per-request server state.
 
 ## Where it lives (implemented 2026-11-10)
 
 - `backend/internal/feed`: `rank.go` (pure: `Score`, signal helpers, `Rank`, `Assemble`), `service.go` (SQL + page assembly), `cursor.go`, `stats.go` (`feed_stats` job every 10 min), `config.go` (reads `feed.*`).
+- A language the device hasn't added is served at all levels (no 422), for the language switcher.
 - `server/feed.go` maps it to `GET /v1/feed`. Errors: 400 `unknown_language`, 400 `bad_cursor`. An empty page with `next_cursor: null` means nothing is left to serve.
 - `feed_stats` writes `video_stats.views_pct`, `likes_pct`, `base_score` for every live clip (creating the row if missing). The events rollup owns the counters, so it must upsert, never plain-insert.
 - Implementation choices the formula above leaves open:

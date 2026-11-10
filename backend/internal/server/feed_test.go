@@ -24,7 +24,8 @@ func TestGetFeedHTTP(t *testing.T) {
 		})
 	}
 
-	// Two pages over the seed's 10 Spanish clips: all served once.
+	// Two pages over the seed's 10 Spanish clips: the first serves all 10,
+	// the second can only repeat uncompleted ones (fallback ladder).
 	seen := map[string]bool{}
 	cursor := ""
 	for page := range 2 {
@@ -50,18 +51,20 @@ func TestGetFeedHTTP(t *testing.T) {
 			t.Fatalf("page %d: status %d, %v", page, res.StatusCode, err)
 		}
 		for _, it := range body.Items {
-			if seen[it.ID] || it.Source != "youtube" || it.Youtube.VideoID == "" {
-				t.Fatalf("page %d: bad or repeated item %+v", page, it)
+			if it.Source != "youtube" || it.Youtube.VideoID == "" {
+				t.Fatalf("page %d: bad item %+v", page, it)
 			}
-			seen[it.ID] = true
+			if page == 0 {
+				if seen[it.ID] {
+					t.Fatalf("first page repeats %s", it.ID)
+				}
+				seen[it.ID] = true
+			} else if !seen[it.ID] {
+				t.Fatalf("second page has %s, which wasn't on the first", it.ID)
+			}
 		}
 		if page == 0 && (len(body.Items) != 10 || body.NextCursor == nil) {
 			t.Fatalf("first page: %d items, next %v", len(body.Items), body.NextCursor)
-		}
-		if page == 1 {
-			if len(body.Items) != 0 || body.NextCursor != nil {
-				t.Fatalf("second page: %d items, next %v; want the end of the feed", len(body.Items), body.NextCursor)
-			}
 		}
 		if body.NextCursor != nil {
 			cursor = *body.NextCursor
