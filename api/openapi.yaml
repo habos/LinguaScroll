@@ -1,0 +1,641 @@
+openapi: 3.0.3
+info:
+  title: LinguaScroll API
+  version: 0.1.0
+  description: |
+    v0 contract (YouTube-only build). Source of truth for the Go server
+    (oapi-codegen) and the Swift client (swift-openapi-generator).
+    Conventions: IDs are UUIDv7 strings, times RFC 3339 UTC, durations
+    integer milliseconds named *_ms, language codes from /v1/languages.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+security:
+  - bearerAuth: []
+tags:
+  - name: system
+  - name: devices
+  - name: feed
+  - name: videos
+  - name: me
+  - name: events
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      operationId: getHealthz
+      summary: Liveness and database check
+      security: []
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          $ref: "#/components/responses/Error"
+  /v1/config:
+    get:
+      tags: [system]
+      operationId: getConfig
+      summary: Runtime config the app needs
+      security: []
+      responses:
+        "200":
+          description: Config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppConfig"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/languages:
+    get:
+      tags: [system]
+      operationId: listLanguages
+      summary: Learnable languages and native-language options
+      security: []
+      responses:
+        "200":
+          description: Languages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LanguageList"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/sessions/anonymous:
+    post:
+      tags: [devices]
+      operationId: createAnonymousSession
+      summary: Register an install (or re-register the same install)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnonymousSessionRequest"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "403":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/me:
+    get:
+      tags: [me]
+      operationId: getMe
+      summary: This device's user and preferences
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [me]
+      operationId: updateMe
+      summary: Change device preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPatch"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [me]
+      operationId: deleteMe
+      summary: Erase this device's data
+      responses:
+        "204":
+          description: Deleted
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/me/languages/{code}:
+    parameters:
+      - $ref: "#/components/parameters/LanguageCode"
+    put:
+      tags: [me]
+      operationId: putMyLanguage
+      summary: Add a learning language or change its level or active flag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearningLanguagePut"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [me]
+      operationId: deleteMyLanguage
+      summary: Remove a learning language (not the last one)
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/me/likes:
+    get:
+      tags: [me]
+      operationId: listMyLikes
+      summary: Liked clips, newest first
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of clips
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoCardPage"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/me/saves:
+    get:
+      tags: [me]
+      operationId: listMySaves
+      summary: Saved clips, newest first
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of clips
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoCardPage"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/feed:
+    get:
+      tags: [feed]
+      operationId: getFeed
+      summary: Next page of clips for this device in one language
+      parameters:
+        - name: language
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Page of clips
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoCardPage"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/videos/{id}/like:
+    parameters:
+      - $ref: "#/components/parameters/VideoID"
+    put:
+      tags: [videos]
+      operationId: likeVideo
+      summary: Like a clip
+      responses:
+        "204":
+          description: Liked
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [videos]
+      operationId: unlikeVideo
+      summary: Remove a like
+      responses:
+        "204":
+          description: Unliked
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/videos/{id}/save:
+    parameters:
+      - $ref: "#/components/parameters/VideoID"
+    put:
+      tags: [videos]
+      operationId: saveVideo
+      summary: Save a clip
+      responses:
+        "204":
+          description: Saved
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [videos]
+      operationId: unsaveVideo
+      summary: Remove a save
+      responses:
+        "204":
+          description: Unsaved
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/videos/{id}/hide:
+    parameters:
+      - $ref: "#/components/parameters/VideoID"
+    put:
+      tags: [videos]
+      operationId: hideVideo
+      summary: Hide a clip from this device forever
+      responses:
+        "204":
+          description: Hidden for this device
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/videos/{id}/report:
+    parameters:
+      - $ref: "#/components/parameters/VideoID"
+    post:
+      tags: [videos]
+      operationId: reportVideo
+      summary: Report a clip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportRequest"
+      responses:
+        "204":
+          description: Reported
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/channel-blocks/{channel_id}:
+    parameters:
+      - name: channel_id
+        in: path
+        required: true
+        description: YouTube channel ID
+        schema:
+          type: string
+    put:
+      tags: [videos]
+      operationId: blockChannel
+      summary: Not interested in this channel
+      responses:
+        "204":
+          description: Blocked for this device
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [videos]
+      operationId: unblockChannel
+      summary: Unblock a channel
+      responses:
+        "204":
+          description: Unblocked
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/events:
+    post:
+      tags: [events]
+      operationId: postEvents
+      summary: Batch of client events (max 200, deduplicated by id)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventBatch"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventBatchResult"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor from a previous page's next_cursor
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 30
+    VideoID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    LanguageCode:
+      name: code
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: snake_case machine code, e.g. age_blocked
+        message:
+          type: string
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    AppConfig:
+      type: object
+      required: [feed_page_size, youtube_captions_default]
+      properties:
+        feed_page_size:
+          type: integer
+        youtube_captions_default:
+          type: boolean
+    Language:
+      type: object
+      required: [code, english_name, native_name, script, direction, is_learnable, is_native_option, launch_order]
+      properties:
+        code:
+          type: string
+          example: es
+        english_name:
+          type: string
+        native_name:
+          type: string
+        script:
+          type: string
+        direction:
+          type: string
+          enum: [ltr, rtl]
+        is_learnable:
+          type: boolean
+        is_native_option:
+          type: boolean
+        launch_order:
+          type: integer
+    LanguageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Language"
+    LearningLanguage:
+      type: object
+      required: [language, level, is_active]
+      properties:
+        language:
+          type: string
+        level:
+          type: integer
+          minimum: 1
+          maximum: 6
+        is_active:
+          type: boolean
+    LearningLanguageInput:
+      type: object
+      required: [language, level]
+      properties:
+        language:
+          type: string
+        level:
+          type: integer
+          minimum: 1
+          maximum: 6
+    LearningLanguagePut:
+      type: object
+      required: [level]
+      properties:
+        level:
+          type: integer
+          minimum: 1
+          maximum: 6
+        is_active:
+          type: boolean
+          description: true makes this the active feed language
+    AnonymousSessionRequest:
+      type: object
+      required: [install_id, birth_year, ui_language, native_language, learning]
+      properties:
+        install_id:
+          type: string
+          minLength: 16
+          maxLength: 64
+        birth_year:
+          type: integer
+          minimum: 1900
+        ui_language:
+          type: string
+        native_language:
+          type: string
+        learning:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/LearningLanguageInput"
+    User:
+      type: object
+      required: [id, age_band, ui_language, native_language, learning]
+      properties:
+        id:
+          type: string
+          format: uuid
+        age_band:
+          type: string
+          enum: [teen, adult]
+        ui_language:
+          type: string
+        native_language:
+          type: string
+        learning:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningLanguage"
+    UserPatch:
+      type: object
+      properties:
+        ui_language:
+          type: string
+        native_language:
+          type: string
+    SessionResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+    YouTubeInfo:
+      type: object
+      required: [video_id, title, channel_id, channel_title, has_captions]
+      properties:
+        video_id:
+          type: string
+        title:
+          type: string
+        channel_id:
+          type: string
+        channel_title:
+          type: string
+        has_captions:
+          type: boolean
+    ViewerState:
+      type: object
+      required: [liked, saved]
+      properties:
+        liked:
+          type: boolean
+        saved:
+          type: boolean
+    VideoCard:
+      type: object
+      required: [id, source, language, level, duration_ms, aspect, youtube, viewer]
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          enum: [youtube]
+          description: native arrives in v1
+        language:
+          type: string
+        level:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 6
+        duration_ms:
+          type: integer
+        aspect:
+          type: number
+          description: width / height
+        youtube:
+          $ref: "#/components/schemas/YouTubeInfo"
+        viewer:
+          $ref: "#/components/schemas/ViewerState"
+    VideoCardPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VideoCard"
+        next_cursor:
+          type: string
+          nullable: true
+    ReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [not_this_language, inappropriate, spam, other]
+    Event:
+      type: object
+      required: [id, type, at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: client-generated; retries reuse it
+        type:
+          type: string
+          enum: [impression, view_end, share, player_error]
+        at:
+          type: string
+          format: date-time
+        video_id:
+          type: string
+          format: uuid
+        props:
+          type: object
+          additionalProperties: true
+          description: |
+            impression: position. view_end: watched_ms, duration_ms, loops,
+            completed, ttff_ms. share: none. player_error: code.
+    EventBatch:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/Event"
+    EventBatchResult:
+      type: object
+      required: [accepted, duplicates]
+      properties:
+        accepted:
+          type: integer
+        duplicates:
+          type: integer
