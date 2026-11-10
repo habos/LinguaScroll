@@ -8,20 +8,26 @@ Where this file and the spec's module tabs disagree, the section "Changes to the
 
 ## 1. Look
 
-v0 is dark only (`.preferredColorScheme(.dark)`). A video app reads best on black, and it halves the work.
+Bright and playful, with a dark frame around the clip. Each colour has one job and a friendly nickname, so its meaning sticks (see the "Colour palette" artboard). Brights live around the clip, never on it. The colours are playful, but there are still no streaks, XP or nagging badges.
 
-| Token | Value | Use |
-|---|---|---|
-| `bg` | `#000000` | Every screen, feed cell, the space around the player |
-| `surface` | `#161618` | Cards and list groups |
-| `surfaceRaised` | `#1C1C1F` | Sheets, language pill, search field |
-| `fill` | `#2A2A2E` | Secondary buttons, separators (`#1F1F22` hairlines) |
-| `textPrimary` | `#F5F5F7` | |
-| `textSecondary` | `#A1A1AA` | Subtitles, footnotes (7.9:1 on black) |
-| `textTertiary` | `#71717A` | Version line, chevrons |
-| `accent` | `#FF6A4D` | Primary buttons, liked/saved fill, selected states, links |
-| `onAccent` | `#1A0905` | Text on accent buttons |
-| `destructive` | `#FF8A73` | Report, Remove, Reset, error lines |
+| Token | Nickname | Value | Job |
+|---|---|---|---|
+| `mango` | the green light | `#FFC233` | Primary buttons, active tab, links, selected states, wordmark "Scroll" |
+| `bubblegum` | a heart sticker | `#FF4F9A` | Like only (`heart.fill`), so pink always means "I liked this" |
+| `lagoon` | a bookmark ribbon | `#22D3C5` | Save only (`bookmark.fill`), first level card |
+| `grape` | your backstage pass | `#6440F5` | Onboarding background, the language pill in the feed's top bar |
+| `grapeDeep` | | `#4F2FD6` | Rows, cards and the year-wheel band on Grape |
+| `night` | the lobby | `#15112E` | Background of Me, Languages, Settings, privacy, the under-13 screen; text on Mango, Lagoon and Bubblegum |
+| `cinema` | the screening room | `#000000` | The feed cell and the space around the player |
+| `surface` | | `#231D4A` | Cards and list groups on Night |
+| `surfaceRaised` | | `#2D2660` | Sheets, search field, segmented control, hairlines |
+| `fill` | | `#3A3275` | Secondary buttons, separators in sheets, unselected level chips |
+| `textPrimary` | | `#F5F5F7` | |
+| `textSecondary` | lavender | `#B9B3D9` | Subtitles and footnotes on Night and black; on Grape use `#F1EDFF` |
+| `textTertiary` | | `#71717A` | Version line, chevrons |
+| `destructive` | tomato | `#FF7A66` | Report, Remove, Reset, error lines |
+
+Onboarding level cards: Just starting = Lagoon, Can get by = Mango, Pretty comfortable = Bubblegum, all with Night text. Every text and background pair above passes 4.5:1.
 
 Type: the system font (SF Pro) with Dynamic Type styles, no custom font. Mockups use Inter as a stand-in.
 
