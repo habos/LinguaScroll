@@ -81,8 +81,9 @@ func TestRoutes(t *testing.T) {
 		{"protected route without token", "GET", "/v1/feed?language=es", "", 401, "unauthorized"},
 		{"protected route with bad token", "GET", "/v1/me", "nope", 401, "unauthorized"},
 		{"expired token", "GET", "/v1/me", "expired", 401, "unauthorized"},
-		{"valid token reaches a stub", "GET", "/v1/me", token, 501, "not_implemented"},
-		{"public stub needs no token", "GET", "/v1/languages", "", 501, "not_implemented"},
+		{"valid token reaches a stub", "GET", "/v1/me/likes", token, 501, "not_implemented"},
+		{"languages are public", "GET", "/v1/languages", "", 200, ""},
+		{"config is public", "GET", "/v1/config", "", 200, ""},
 		{"anonymous session is public", "POST", "/v1/sessions/anonymous", "", 400, "bad_request"},
 		{"missing required query param", "GET", "/v1/feed", token, 400, "bad_request"},
 		{"bad uuid path param", "PUT", "/v1/videos/not-a-uuid/like", token, 400, "bad_request"},
@@ -104,11 +105,11 @@ func TestRoutes(t *testing.T) {
 func TestRateLimit(t *testing.T) {
 	ts, token := newServer(t, 3)
 	for i := range 3 {
-		if status, _ := do(t, "GET", ts.URL+"/v1/me", token); status != 501 {
+		if status, _ := do(t, "GET", ts.URL+"/v1/me/likes", token); status != 501 {
 			t.Fatalf("request %d: status %d", i, status)
 		}
 	}
-	status, e := do(t, "GET", ts.URL+"/v1/me", token)
+	status, e := do(t, "GET", ts.URL+"/v1/me/likes", token)
 	if status != 429 || e.Error.Code != "rate_limited" {
 		t.Fatalf("4th request: %d %+v, want 429 rate_limited", status, e)
 	}

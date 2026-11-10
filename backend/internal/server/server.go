@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/habos/linguascroll/backend/internal/api"
+	"github.com/habos/linguascroll/backend/internal/devices"
 	"github.com/habos/linguascroll/backend/internal/platform/httpx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -29,7 +30,8 @@ type Deps struct {
 // fall through to Unimplemented (501).
 type Server struct {
 	Unimplemented
-	db *pgxpool.Pool
+	db      *pgxpool.Pool
+	devices *devices.Service
 }
 
 var _ api.StrictServerInterface = (*Server)(nil)
@@ -47,7 +49,7 @@ func publicRoute(r *http.Request) bool {
 
 // New returns the full HTTP handler.
 func New(d Deps) http.Handler {
-	s := &Server{db: d.DB}
+	s := &Server{db: d.DB, devices: &devices.Service{DB: d.DB}}
 	strict := api.NewStrictHandlerWithOptions(s, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, http.StatusBadRequest, "bad_request", err.Error())
@@ -55,6 +57,11 @@ func New(d Deps) http.Handler {
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			if errors.Is(err, ErrNotImplemented) {
 				httpx.WriteError(w, http.StatusNotImplemented, "not_implemented", "this endpoint is not built yet")
+				return
+			}
+			var apiErr *httpx.APIError
+			if errors.As(err, &apiErr) {
+				httpx.WriteError(w, apiErr.Status, apiErr.Code, apiErr.Message)
 				return
 			}
 			d.Log.ErrorContext(r.Context(), "handler error", "err", err, "path", r.URL.Path, "request_id", httpx.RequestIDFrom(r.Context()))

@@ -227,3 +227,19 @@ func clientAddr(r *http.Request) string {
 	}
 	return addr
 }
+
+// APIError is an error a handler returns to answer with a specific status
+// and error code. The server's response error handler writes it in the
+// standard shape; any other error becomes a logged 500.
+type APIError struct {
+	Status  int
+	Code    string
+	Message string
+}
+
+func (e *APIError) Error() string { return e.Code + ": " + e.Message }
+
+// E returns an *APIError.
+func E(status int, code, message string) error {
+	return &APIError{Status: status, Code: code, Message: message}
+}
