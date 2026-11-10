@@ -1,0 +1,85 @@
+# YouTube search terms and seed channels per language (module V3).
+# `make sources` loads this into youtube_sources; rows missing from the file
+# are disabled, not deleted. level is an optional 1-6 hint for every clip
+# the source finds. Seed channels are trusted for language, so only list a
+# channel whose Shorts are all in that language.
+#
+# Search costs 100 quota units; prefer a few good queries and seed channels
+# over many broad queries. Adding a language: add a block here, a row in
+# backend/seed/01_languages.sql and level words in app_config
+# youtube.level_keywords.
+es:
+  queries:
+    - text: aprender español shorts
+    - text: español para principiantes
+      level: 1
+    - text: historias cortas en español
+    - text: español nativo conversación
+      level: 5
+  channels: []
+fr:
+  queries:
+    - text: apprendre le français shorts
+    - text: français facile
+      level: 1
+    - text: vie quotidienne en France
+  channels: []
+ja:
+  queries:
+    - text: 日本語 ショート
+    - text: やさしい日本語
+      level: 1
+  channels: []
+de:
+  queries:
+    - text: Deutsch lernen shorts
+    - text: Deutsch für Anfänger
+      level: 1
+  channels: []
+ko:
+  queries:
+    - text: 한국어 쇼츠
+  channels: []
+it:
+  queries:
+    - text: imparare italiano shorts
+  channels: []
+pt-BR:
+  queries:
+    - text: português brasileiro shorts
+  channels: []
+en:
+  queries:
+    - text: everyday english shorts
+  channels: []
+zh-Hans:
+  queries:
+    - text: 学中文 短视频
+    - text: 中文 日常 对话
+  channels: []
+hi:
+  queries:
+    - text: हिंदी सीखें shorts
+  channels: []
+ru:
+  queries:
+    - text: русский язык shorts
+    - text: русский для начинающих
+      level: 1
+  channels: []
+ar:
+  queries:
+    - text: تعلم العربية shorts
+  channels: []
+tr:
+  queries:
+    - text: Türkçe öğren shorts
+  channels: []
+nl:
+  queries:
+    - text: Nederlands leren shorts
+  channels: []
+sv:
+  queries:
+    - text: lära sig svenska shorts
+  channels: []

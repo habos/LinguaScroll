@@ -1,4 +1,4 @@
-// Command seed loads languages, config defaults, starter YouTube sources and
+// Command seed loads languages, config defaults and
 // 30 placeholder clips. Idempotent.
 package main
 

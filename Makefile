@@ -31,8 +31,13 @@ migrate: ## Apply app and River migrations
 	cd backend && go run ./cmd/migrate
 
 .PHONY: seed
-seed: ## Load languages, config defaults, starter sources, sample clips
+seed: ## Load languages, config defaults, sample clips and YouTube sources
 	cd backend && go run ./cmd/seed
+	$(MAKE) sources
+
+.PHONY: sources
+sources: ## Load infra/youtube_sources.yaml into youtube_sources
+	cd backend && go run ./cmd/sources ../infra/youtube_sources.yaml
 
 .PHONY: gen
 gen: ## Generate the Go server interface and copy the spec into the Swift package

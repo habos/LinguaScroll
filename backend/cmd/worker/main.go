@@ -9,10 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/habos/linguascroll/backend/internal/catalog"
 	"github.com/habos/linguascroll/backend/internal/jobs"
+	"github.com/habos/linguascroll/backend/internal/langdetect"
 	"github.com/habos/linguascroll/backend/internal/platform/config"
 	"github.com/habos/linguascroll/backend/internal/platform/db"
 	"github.com/habos/linguascroll/backend/internal/platform/logx"
+	"github.com/habos/linguascroll/backend/internal/youtube"
+	"github.com/habos/linguascroll/backend/internal/youtube/fake"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
@@ -37,15 +41,24 @@ func main() {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &jobs.EventPartitionsWorker{DB: pool})
 
+	cat := &catalog.Service{DB: pool, Log: log}
+	if cfg.FakeVendors {
+		// No network and no quota: searches find nothing until a test or
+		// demo fills the fake.
+		cat.YT, cat.Detect = fake.New(), langdetect.DefaultFake
+	} else {
+		cat.YT, cat.Detect = &youtube.HTTPClient{Key: cfg.YouTubeAPIKey}, &langdetect.Lingua{}
+	}
+	periodic := catalog.Register(workers, cat)
+
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger:  log,
 		Queues:  map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 4}},
 		Workers: workers,
-		PeriodicJobs: []*river.PeriodicJob{
+		PeriodicJobs: append(periodic,
 			river.NewPeriodicJob(river.PeriodicInterval(24*time.Hour),
 				func() (river.JobArgs, *river.InsertOpts) { return jobs.EventPartitionsArgs{}, nil },
-				&river.PeriodicJobOpts{RunOnStart: true}),
-		},
+				&river.PeriodicJobOpts{RunOnStart: true})),
 	})
 	if err != nil {
 		log.Error("river client", "err", err)
