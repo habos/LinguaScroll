@@ -135,7 +135,7 @@ Switching language: dismiss the sheet, crossfade the feed to the loading state, 
 - First load: placeholder with a spinner and "Finding {language} clips…"; bar shows skeleton shapes.
 - Offline / feed request fails: "You're offline" / "We'll carry on as soon as you're back." / **Try again** button. Retry automatically when the network comes back. Clips already loaded keep playing.
 - Player error: bar message, `player_error` event, auto-advance after 1 s (codes 101/150 also `PUT /hide`).
-- All caught up (empty feed page; can happen quickly while the catalog is small): "You've seen every {language} clip we have for now" / "New clips arrive every day. Meanwhile, try another level or language, or rewatch what you saved." / **Change level** (opens Me > Languages with this language expanded), **Switch language** (language switcher sheet), and a text button "Rewatch saved clips" when Saved is not empty. When the user comes back to the Feed tab or reopens the app, ask for a page again before showing this state.
+- All caught up (empty page, `next_cursor` null): the feed already widens level and recency in stages before this, so it only means every clip in this language is used up. "You've watched everything in {language} for now" / "New clips arrive every day. Meanwhile, try another language or rewatch what you saved." / **Switch language** (language switcher sheet), **Rewatch saved clips** (shown only when Saved is not empty). No level nudge, since the feed has already tried every level. When the user comes back to the Feed tab or reopens the app, ask for a page again before showing this state.
 
 ### Events
 
@@ -194,5 +194,5 @@ Privacy copy ("About your data"):
 
 ## 7. Open questions
 
-- Feed thread: can the feed widen the level window and lower the explore threshold before it ever returns an empty page? The out-of-clips screen should be close to unreachable.
+- Settled: the feed widens level and recency in stages before it returns an empty page (feed PR #5).
 - The age block is permanent on the device (the Keychain survives reinstalls). Fine for v0; later it could expire once the stored age band reaches 13.
