@@ -129,7 +129,7 @@ Switching language: dismiss the sheet, crossfade the feed to the loading state, 
 - First load: placeholder with a spinner and "Finding {language} clips…"; bar shows skeleton shapes.
 - Offline / feed request fails: "You're offline" / "We'll carry on as soon as you're back." / **Try again** button. Retry automatically when the network comes back. Clips already loaded keep playing.
 - Player error: bar message, `player_error` event, auto-advance after 1 s (codes 101/150 also `PUT /hide`).
-- Out of clips (should be rare, see open questions): "You've seen every {language} clip we have for now" / "New clips arrive every day. Meanwhile:" / **Rewatch saved clips**, **Switch language**.
+- All caught up (empty feed page; can happen quickly while the catalog is small): "You've seen every {language} clip we have for now" / "New clips arrive every day. Meanwhile, try another level or language, or rewatch what you saved." / **Change level** (opens Me > Languages with this language expanded), **Switch language** (language switcher sheet), and a text button "Rewatch saved clips" when Saved is not empty. When the user comes back to the Feed tab or reopens the app, ask for a page again before showing this state.
 
 ### Events
 
