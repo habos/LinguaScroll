@@ -420,3 +420,31 @@ func TestSourcesFileParses(t *testing.T) {
 		t.Fatal("no Spanish queries")
 	}
 }
+
+// make dev: the canned fake grows the catalog, and refresh keeps both the
+// canned clips and the seeded sample clips.
+func TestDevFakeKeepsDevCatalogAlive(t *testing.T) {
+	pool := dbtest.New(t, true)
+	ctx := context.Background()
+	if _, err := catalog.ApplySources(ctx, pool, esQuery("q", nil)); err != nil {
+		t.Fatal(err)
+	}
+	samples := count(t, pool, `SELECT count(*) FROM videos WHERE status = 'live'`)
+	yt := fake.New()
+	if err := catalog.FillDevFake(ctx, pool, yt); err != nil {
+		t.Fatal(err)
+	}
+	s := &catalog.Service{DB: pool, YT: yt, Detect: langdetect.DefaultFake}
+	if kept, err := s.SearchOnce(ctx); err != nil || kept != catalog.DevClipsPerSource {
+		t.Fatalf("kept %d, err %v", kept, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE videos SET refreshed_at = now() - interval '26 days'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, removed, err := s.Refresh(ctx); err != nil || removed != 0 {
+		t.Fatalf("removed %d, err %v", removed, err)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM videos WHERE status = 'live'`); n != samples+catalog.DevClipsPerSource {
+		t.Errorf("live = %d, want %d", n, samples+catalog.DevClipsPerSource)
+	}
+}

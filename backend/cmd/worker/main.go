@@ -43,9 +43,14 @@ func main() {
 
 	cat := &catalog.Service{DB: pool, Log: log}
 	if cfg.FakeVendors {
-		// No network and no quota: searches find nothing until a test or
-		// demo fills the fake.
-		cat.YT, cat.Detect = fake.New(), langdetect.DefaultFake
+		// No network: a canned catalog per source, and the clips already
+		// stored, so `make dev` grows a feed and refresh keeps it.
+		yt := fake.New()
+		if err := catalog.FillDevFake(ctx, pool, yt); err != nil {
+			log.Error("fill dev fake", "err", err)
+			os.Exit(1)
+		}
+		cat.YT, cat.Detect = yt, langdetect.DefaultFake
 	} else {
 		cat.YT, cat.Detect = &youtube.HTTPClient{Key: cfg.YouTubeAPIKey}, &langdetect.Lingua{}
 	}
