@@ -38,19 +38,19 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 
 | ID | Criterion | Type | Covered by | Status |
 |---|---|---|---|---|
-| V3-01 | Fake client, Spanish run over 50 IDs (20 good, 5 landscape, 5 kids, 5 `en`, 15 untagged Spanish titles) stores exactly 35 | A | `catalog.TestSearchAcceptanceMix` | covered (PR #6) |
-| V3-02 | "para principiantes" title → level 1 or 2, `level_source = keyword` | A | `catalog.TestGuessLevel`, `TestStoredLevelFromKeywords` | covered (PR #6) |
-| V3-03 | Search job stops at the daily unit budget and resumes after midnight UTC | A | `catalog.TestQuotaStopsAndResumesAtMidnightUTC`, `TestYouTubeQuotaErrorStopsQuietly` | covered (PR #6) |
-| V3-04 | Clip refreshed 26 days ago is re-read; a deleted one ends `removed` with text fields cleared | A | `catalog.TestRefresh` | covered (PR #6); QA asked to also clear stats and re-check kids/age |
+| V3-01 | Fake client, Spanish run over 50 IDs (20 good, 5 landscape, 5 kids, 5 `en`, 15 untagged Spanish titles) stores exactly 35 | A | `catalog.TestSearchAcceptanceMix` | pass @042aa26 (PR #6) |
+| V3-02 | "para principiantes" title → level 1 or 2, `level_source = keyword` | A | `catalog.TestGuessLevel`, `TestStoredLevelFromKeywords` | pass @042aa26 (PR #6) |
+| V3-03 | Search job stops at the daily unit budget and resumes after midnight UTC | A | `catalog.TestQuotaStopsAndResumesAtMidnightUTC`, `TestYouTubeQuotaErrorStopsQuietly` | pass @042aa26 (PR #6) |
+| V3-04 | Clip refreshed 26 days ago is re-read; a deleted one ends `removed` with text fields cleared | A | `catalog.TestRefresh` | pass @042aa26 (PR #6) |
 | V3-05 | Real run with an API key: es, fr, ja each get ≥ 50 live clips in one day | M | [manual/catalog-real-run.md](manual/catalog-real-run.md) | todo |
-| V3-06 **QA+** | `es-419` audio tag counts as `es`; `en-US` tag on a Spanish search is dropped | A | `catalog.TestClassifyLanguage` | covered (PR #6) |
-| V3-07 **QA+** | Age-restricted and > 180 s clips are dropped | A | `catalog.TestKeepFilters` | covered (PR #6); refresh path missing kids/age |
-| V3-08 **QA+** | Quota counter: `search.list` = 100 units, `videos.list` = 1 unit per ≤ 50 IDs | A | `catalog.TestSearchAcceptanceMix`, `youtube.TestHTTPClient` | covered (PR #6) |
-| V3-09 **QA+** | No test or CI path calls the real YouTube API (fake used when `FAKE_VENDORS=1` or no key) | A | `youtube.TestHTTPClient` (httptest), config tests | covered (PR #6) |
-| V3-10 **QA+** | Level refinement: 20 completed views → level = rounded average viewer level, `level_source = engagement` | A | `catalog.TestRefineLevels` | covered (PR #6) |
-| V3-12 **QA+** | Refresh removes clips that became made-for-kids or age-restricted | A | | gap (asked on PR #6) |
-| V3-13 **QA+** | Removed clips keep only IDs: stats, category, publish time cleared (Y9) | A | `qa/sql/compliance.sql` Y9 | gap (asked on PR #6) |
-| V3-11 **QA+** | `sql/compliance.sql` returns 0 rows after a refresh run | A | manual run by backend thread; CI after fake refresh: todo | covered (PR #6) |
+| V3-06 **QA+** | `es-419` audio tag counts as `es`; `en-US` tag on a Spanish search is dropped | A | `catalog.TestClassifyLanguage` | pass @042aa26 (PR #6) |
+| V3-07 **QA+** | Age-restricted and > 180 s clips are dropped | A | `catalog.TestKeepFilters` | pass @042aa26 (PR #6) |
+| V3-08 **QA+** | Quota counter: `search.list` = 100 units, `videos.list` = 1 unit per ≤ 50 IDs | A | `catalog.TestSearchAcceptanceMix`, `youtube.TestHTTPClient` | pass @042aa26 (PR #6) |
+| V3-09 **QA+** | No test or CI path calls the real YouTube API (fake used when `FAKE_VENDORS=1` or no key) | A | `youtube.TestHTTPClient` (httptest), config tests | pass @042aa26 (PR #6) |
+| V3-10 **QA+** | Level refinement: 20 completed views → level = rounded average viewer level, `level_source = engagement` | A | `catalog.TestRefineLevels` | pass @042aa26 (PR #6) |
+| V3-12 **QA+** | Refresh removes clips that became made-for-kids or age-restricted | A | `catalog.TestRefresh` (kids, adult cases) | pass @042aa26 (PR #6) |
+| V3-13 **QA+** | Removed clips keep only IDs: stats, category, publish time cleared (Y9) | A | `catalog.TestRefresh`; `qa/sql/compliance.sql` Y9 | pass @042aa26 (PR #6), worker run + compliance.sql 0 rows |
+| V3-11 **QA+** | `sql/compliance.sql` returns 0 rows after a refresh run | A | QA run: worker with fake vendors after backdating, 0 rows | pass @042aa26 (PR #6); CI step after a refresh still todo |
 
 ## V4 Feed, likes, saves and events
 
