@@ -54,20 +54,20 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 
 | ID | Criterion | Type | Covered by | Status |
 |---|---|---|---|---|
-| V4-01 | Fresh device gets a page ordered mostly by YouTube quality, with 1 or 2 explore clips | A | | todo |
-| V4-02 | After liking 3 clips from one channel, the next page includes that channel (within spacing) | A | | todo |
-| V4-03 | No channel twice in any 5 consecutive items, across page boundaries | A | | todo |
-| V4-04 | Hidden clip and blocked channel's clips never come back | A | | todo |
+| V4-01 | Fresh device gets a page ordered mostly by YouTube quality, with 1 or 2 explore clips | A | `feed.TestFreshDeviceGetsQualityOrderedPageWithExplore` | pass @6547f16 (PR #5) |
+| V4-02 | After liking 3 clips from one channel, the next page includes that channel (within spacing) | A | `feed.TestLikesFromChannelRaiseIt` | pass @6547f16 (PR #5) |
+| V4-03 | No channel twice in any 5 consecutive items, across page boundaries (holds when the language has ≥ 5 channels; relaxed on tiny catalogs by design) | A | `feed.TestNoRepeatsAndChannelSpacingOver20Pages` | pass @6547f16 (PR #5) |
+| V4-04 | Hidden clip and blocked channel's clips never come back | A | `feed.TestHiddenBlockedRemovedAndOffLevelNeverReturn` | pass @6547f16 (PR #5) |
 | V4-05 | Three reports from three devices remove a clip from every feed | A | | todo |
-| V4-06 | No clip repeats across 20 consecutive pages (500 live clips) | A | | todo |
-| V4-07 | Score unit tests with fixed inputs, including the new-device case | A | | todo |
+| V4-06 | No clip repeats across 20 consecutive pages (500 live clips) | A | `feed.TestNoRepeatsAndChannelSpacingOver20Pages` | pass @6547f16 (PR #5) |
+| V4-07 | Score unit tests with fixed inputs, including the new-device case | A | `feed/rank_test.go` | pass @6547f16 (PR #5) |
 | V4-08 **QA+** | Duplicate client event IDs counted once; batch > 200 rejected | A | | todo |
-| V4-09 **QA+** | p95 `GET /v1/feed` < 200 ms at 20,000 live clips per language | A (bench) | | todo |
+| V4-09 **QA+** | p95 `GET /v1/feed` < 200 ms at 20,000 live clips per language | A (bench) | `feed.TestLatencyAt20kClips` (`FEED_LOAD_TEST=1`; p95 38 ms) | pass @6547f16 (PR #5) |
 | V4-10 **QA+** | Like/save/block PUT and DELETE are idempotent; hide is PUT only | A | | todo |
 | V4-11 **QA+** | Event `at` far in the future or past is rejected or clamped, and never breaks partition creation | A | | todo |
-| V4-12 **QA+** | Music-category clips ≤ `feed.music_cap` of a page | A | | todo |
+| V4-12 **QA+** | Music-category clips ≤ `feed.music_cap` of a page | A | `feed/rank_test.go` (assembly) | pass @6547f16 (PR #5) |
 | V4-13 **QA+** | Same report from the same device twice counts once | A | | todo |
-| V4-14 **QA+** | `removed` clips never appear in feed, likes or saves lists | A | | todo |
+| V4-14 **QA+** | `removed` clips never appear in feed, likes or saves lists | A | `feed.TestHiddenBlockedRemovedAndOffLevelNeverReturn` | pass @6547f16 (PR #5) |
 
 ## V5 iOS shell and onboarding
 
@@ -100,6 +100,7 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V6-12 **QA+** | Pauses on backgrounding; no audio from offscreen player | M | [manual/device-pass.md](manual/device-pass.md) | todo |
 | V6-13 **QA+** | Like/save roll back with a toast when the call fails | A | | todo |
 | V6-14 **QA+** | Share link is `https://youtube.com/shorts/<id>` | A | | todo |
+| V6-15 **QA+** | Empty feed page (`items: []`, `next_cursor: null`) shows an "all caught up" state and retries later; first-page loading and error states exist | A+M | design: UX spec §4 "Playback and states" (docs/ux/v0-ux-spec.md); device-pass step 17 | todo |
 
 ## V7 iOS Saved, Liked and settings
 
