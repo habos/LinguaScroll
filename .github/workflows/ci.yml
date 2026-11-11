@@ -75,11 +75,11 @@ jobs:
       - name: Generate the app project
         working-directory: ios/App
         run: brew install xcodegen && xcodegen
-      - name: Build the app for the simulator
+      - name: Build and test the app on the smallest iPhone (QA rows V6-05, V6-08, V6-09, V6-10)
         working-directory: ios/App
-        shell: bash # -eo pipefail, so a failed build fails the step
+        shell: bash # -eo pipefail, so a failed build or test fails the step
         run: >-
-          xcodebuild build -project LinguaScroll.xcodeproj -scheme LinguaScroll
-          -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
+          xcodebuild test -project LinguaScroll.xcodeproj -scheme LinguaScroll
+          -destination 'platform=iOS Simulator,name=iPhone SE (3rd generation)' -skipPackagePluginValidation
           CODE_SIGNING_ALLOWED=NO 2>&1
-          | grep -E '(error|warning):|\*\* BUILD'
+          | grep -E '(error|warning):|\*\* (BUILD|TEST)|Test Case|Executed''

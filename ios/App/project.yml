@@ -52,3 +52,22 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"
         API_BASE_URL: "http:/$()/localhost:8080"
+  LinguaScrollTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: LinguaScroll
+      - package: Core
+      - package: Features
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.linguascroll.ios.tests
+schemes:
+  LinguaScroll:
+    build:
+      targets:
+        LinguaScroll: all
+    test:
+      targets: [LinguaScrollTests]
