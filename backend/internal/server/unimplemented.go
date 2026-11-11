@@ -25,10 +25,6 @@ func (Unimplemented) PostEvents(context.Context, api.PostEventsRequestObject) (a
 	return nil, ErrNotImplemented
 }
 
-func (Unimplemented) GetFeed(context.Context, api.GetFeedRequestObject) (api.GetFeedResponseObject, error) {
-	return nil, ErrNotImplemented
-}
-
 func (Unimplemented) ListMyLikes(context.Context, api.ListMyLikesRequestObject) (api.ListMyLikesResponseObject, error) {
 	return nil, ErrNotImplemented
 }

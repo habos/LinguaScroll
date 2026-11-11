@@ -6,6 +6,8 @@ INSERT INTO app_config (key, value) VALUES
   ('feed.explore_share',              '0.15'),
   ('feed.channel_spacing',            '5'),
   ('feed.music_cap',                  '0.2'),
+  ('feed.explore_max_views',          '50'),
+  ('feed.candidates',                 '400'),
   ('feed.weights',                    '{"completion": 0.25, "views_pct": 0.15, "likes_pct": 0.15, "level": 0.10, "channel": 0.15, "category": 0.10, "fresh": 0.05, "hide": -0.30, "noise": 0.05}'),
   ('youtube.daily_quota_units',       '9000'),
   ('youtube.min_language_confidence', '0.8'),

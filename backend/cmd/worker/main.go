@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/habos/linguascroll/backend/internal/feed"
 	"github.com/habos/linguascroll/backend/internal/jobs"
 	"github.com/habos/linguascroll/backend/internal/platform/config"
 	"github.com/habos/linguascroll/backend/internal/platform/db"
@@ -36,6 +37,7 @@ func main() {
 
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &jobs.EventPartitionsWorker{DB: pool})
+	river.AddWorker(workers, &feed.StatsWorker{DB: pool})
 
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger:  log,
@@ -44,6 +46,9 @@ func main() {
 		PeriodicJobs: []*river.PeriodicJob{
 			river.NewPeriodicJob(river.PeriodicInterval(24*time.Hour),
 				func() (river.JobArgs, *river.InsertOpts) { return jobs.EventPartitionsArgs{}, nil },
+				&river.PeriodicJobOpts{RunOnStart: true}),
+			river.NewPeriodicJob(river.PeriodicInterval(feed.StatsInterval),
+				func() (river.JobArgs, *river.InsertOpts) { return feed.StatsArgs{}, nil },
 				&river.PeriodicJobOpts{RunOnStart: true}),
 		},
 	})
