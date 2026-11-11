@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/habos/linguascroll/backend/internal/catalog"
+	"github.com/habos/linguascroll/backend/internal/feed"
 	"github.com/habos/linguascroll/backend/internal/jobs"
 	"github.com/habos/linguascroll/backend/internal/langdetect"
 	"github.com/habos/linguascroll/backend/internal/platform/config"
@@ -40,6 +41,7 @@ func main() {
 
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &jobs.EventPartitionsWorker{DB: pool})
+	river.AddWorker(workers, &feed.StatsWorker{DB: pool})
 
 	cat := &catalog.Service{DB: pool, Log: log}
 	if cfg.FakeVendors {
@@ -63,6 +65,9 @@ func main() {
 		PeriodicJobs: append(periodic,
 			river.NewPeriodicJob(river.PeriodicInterval(24*time.Hour),
 				func() (river.JobArgs, *river.InsertOpts) { return jobs.EventPartitionsArgs{}, nil },
+				&river.PeriodicJobOpts{RunOnStart: true}),
+			river.NewPeriodicJob(river.PeriodicInterval(feed.StatsInterval),
+				func() (river.JobArgs, *river.InsertOpts) { return feed.StatsArgs{}, nil },
 				&river.PeriodicJobOpts{RunOnStart: true})),
 	})
 	if err != nil {
