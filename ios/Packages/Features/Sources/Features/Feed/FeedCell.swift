@@ -28,6 +28,15 @@ final class FeedCell: UICollectionViewCell {
         placeholder.clipsToBounds = true
         placeholder.isAccessibilityElement = false
         playerFrame.addSubview(placeholder)
+        disableCellMenuGesture()
+    }
+
+    /// UIKit gives every cell a long-press for context menus. The cell is the player's
+    /// frame, so no touch action of ours may live there: switch it off.
+    private func disableCellMenuGesture() {
+        for g in contentView.gestureRecognizers ?? [] where g is UILongPressGestureRecognizer || g is UITapGestureRecognizer {
+            g.isEnabled = false
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -49,6 +58,7 @@ final class FeedCell: UICollectionViewCell {
     }
 
     func configure(_ card: VideoCard) {
+        disableCellMenuGesture()
         aspect = CGFloat(card.aspect > 0 ? card.aspect : 9.0 / 16.0)
         accessibilityLabel = card.title
         guard card.youtubeID != youtubeID else { setNeedsLayout(); return }

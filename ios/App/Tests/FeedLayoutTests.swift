@@ -78,7 +78,7 @@ final class FeedLayoutTests: XCTestCase {
         // UIKit can attach its own recognisers to a cell's content view; none may act on taps,
         // double-taps or long-presses (that would be a touch action of ours on the player).
         let onContent = cell.contentView.gestureRecognizers ?? []
-        XCTAssertFalse(onContent.contains { $0 is UITapGestureRecognizer || $0 is UILongPressGestureRecognizer },
+        XCTAssertFalse(onContent.contains { $0.isEnabled && ($0 is UITapGestureRecognizer || $0 is UILongPressGestureRecognizer) },
                        "tap/long-press recognisers on the cell: \(onContent)")
         XCTAssertTrue(webView.gestureRecognizers?.isEmpty ?? true)
     }
