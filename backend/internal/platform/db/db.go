@@ -38,5 +38,7 @@ func migrateDB(ctx context.Context, sqlDB *sql.DB) error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return err
 	}
-	return goose.UpContext(ctx, sqlDB, ".")
+	// Several threads add migrations in parallel, so a lower-numbered file
+	// can land after a higher one was applied; apply it instead of failing.
+	return goose.UpContext(ctx, sqlDB, ".", goose.WithAllowMissing())
 }
