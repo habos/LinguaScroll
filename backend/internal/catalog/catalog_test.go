@@ -286,7 +286,10 @@ func TestPickSourceFavoursLanguagesWithFewerSearchesAndClips(t *testing.T) {
 // V3 acceptance: a clip refreshed 26 days ago is re-read; a deleted one
 // ends removed with its text fields cleared.
 func TestRefresh(t *testing.T) {
-	s, yt, pool, _ := setup(t, esQuery("q", nil))
+	s, yt, pool, now := setup(t, esQuery("q", nil))
+	// The SQL below backdates rows from the database clock, so the service
+	// clock must agree with it.
+	*now = time.Now()
 	ctx := context.Background()
 	for _, id := range []string{"keep", "gone", "private", "kids", "adult", "recent"} {
 		v := fake.Video(id, "Hola "+id)
