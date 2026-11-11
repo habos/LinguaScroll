@@ -8,26 +8,22 @@ Where this file and the spec's module tabs disagree, the section "Changes to the
 
 ## 1. Look
 
-Bright and playful, with a dark frame around the clip. Each colour has one job and a friendly nickname, so its meaning sticks (see the "Colour palette" artboard). Brights live around the clip, never on it. The colours are playful, but there are still no streaks, XP or nagging badges.
+Scheme "Lagoon" (Harry's pick, 2026-11-11): one accent, teal, on a blue-black base. Teal marks everything you can act on or have chosen: primary buttons, links, the active tab, liked, saved and selected states. Icon shape (`heart.fill` vs `bookmark.fill`), not colour, tells like and save apart. The feed cell around the player stays pure black. No streaks, XP or badges.
 
-| Token | Nickname | Value | Job |
-|---|---|---|---|
-| `mango` | the green light | `#FFC233` | Primary buttons, active tab, links, selected states, wordmark "Scroll" |
-| `bubblegum` | a heart sticker | `#FF4F9A` | Like only (`heart.fill`), so pink always means "I liked this" |
-| `lagoon` | a bookmark ribbon | `#22D3C5` | Save only (`bookmark.fill`), first level card |
-| `grape` | your backstage pass | `#6440F5` | Onboarding background, the language pill in the feed's top bar |
-| `grapeDeep` | | `#4F2FD6` | Rows, cards and the year-wheel band on Grape |
-| `night` | the lobby | `#15112E` | Background of Me, Languages, Settings, privacy, the under-13 screen; text on Mango, Lagoon and Bubblegum |
-| `cinema` | the screening room | `#000000` | The feed cell and the space around the player |
-| `surface` | | `#231D4A` | Cards and list groups on Night |
-| `surfaceRaised` | | `#2D2660` | Sheets, search field, segmented control, hairlines |
-| `fill` | | `#3A3275` | Secondary buttons, separators in sheets, unselected level chips |
-| `textPrimary` | | `#F5F5F7` | |
-| `textSecondary` | lavender | `#B9B3D9` | Subtitles and footnotes on Night and black; on Grape use `#F1EDFF` |
-| `textTertiary` | | `#71717A` | Version line, chevrons |
-| `destructive` | tomato | `#FF7A66` | Report, Remove, Reset, error lines |
-
-Onboarding level cards: Just starting = Lagoon, Can get by = Mango, Pretty comfortable = Bubblegum, all with Night text. Every text and background pair above passes 4.5:1.
+| Token | Value | Use |
+|---|---|---|
+| `accent` | `#22D3C5` | Primary buttons, links, active tab, liked, saved, selected, checkmarks, wordmark "Scroll" |
+| `onAccent` | `#0E1416` | Text and icons on `accent` (9.9:1) |
+| `accentTint` | `#10363A` | Language pill in the feed's top bar, selected card background |
+| `base` | `#0E1416` | Every screen background (onboarding, Me, Languages, Settings, privacy, under-13) |
+| `cinema` | `#000000` | Feed cell and the space around the player |
+| `surface` | `#1A2326` | Cards, list groups, level cards |
+| `surfaceRaised` | `#222D31` | Sheets, search field, segmented control, hairlines |
+| `fill` | `#2A373B` | Secondary buttons, separators in sheets, unselected level chips |
+| `textPrimary` | `#F5F5F7` | |
+| `textSecondary` | `#9FB3B5` | Subtitles and footnotes |
+| `textTertiary` | `#71717A` | Version line, chevrons |
+| `destructive` | `#FF7A66` | Report, Remove, Reset, error lines (the only other hue) |
 
 Type: the system font (SF Pro) with Dynamic Type styles, no custom font. Mockups use Inter as a stand-in.
 
