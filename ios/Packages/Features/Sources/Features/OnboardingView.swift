@@ -25,7 +25,7 @@ struct OnboardingView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .background(Palette.grape.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
         .foregroundStyle(Palette.textPrimary)
         .animation(.default, value: step)
     }
@@ -40,7 +40,7 @@ struct OnboardingView: View {
                 .disabled(registeringLevel != nil)
             }
             Spacer()
-            Text("\(step) of 4").font(.footnote).foregroundStyle(Palette.textOnGrape)
+            Text("\(step) of 4").font(.footnote).foregroundStyle(Palette.textSecondary)
         }
         .frame(height: 44)
         .padding(.horizontal, 16)
@@ -74,7 +74,7 @@ private struct BirthYearStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Wordmark()
-            Text("Learn a language by scrolling.").font(.title3).foregroundStyle(Palette.textOnGrape)
+            Text("Learn a language by scrolling.").font(.title3).foregroundStyle(Palette.textSecondary)
             Text("First, what year were you born?").font(.largeTitle.bold())
             Picker(selection: $year) {
                 ForEach(Array((thisYear - 100...thisYear).reversed()), id: \.self) { y in
@@ -84,9 +84,9 @@ private struct BirthYearStep: View {
                 Text("Birth year")
             }
             .pickerStyle(.wheel)
-            .background(Palette.grapeDeep.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: 14))
             Text("We use this only to check your age. We keep an age range, not the year.")
-                .font(.footnote).foregroundStyle(Palette.textOnGrape)
+                .font(.footnote).foregroundStyle(Palette.textSecondary)
             Spacer()
             Button("Continue", action: next).buttonStyle(PrimaryButtonStyle())
         }
@@ -116,14 +116,14 @@ private struct LearnStep: View {
                         HStack {
                             Text(lang.localizedName()).font(.body.weight(.semibold))
                             Spacer()
-                            Text(verbatim: lang.nativeName).foregroundStyle(Palette.textOnGrape)
+                            Text(verbatim: lang.nativeName).foregroundStyle(Palette.textSecondary)
                         }
                         .padding(.horizontal, 16)
                         .frame(minHeight: 56)
-                        .background(Palette.grapeDeep, in: RoundedRectangle(cornerRadius: 14))
+                        .background(Palette.surface, in: RoundedRectangle(cornerRadius: 14))
                         .overlay {
                             if selection == lang.code {
-                                RoundedRectangle(cornerRadius: 14).stroke(Palette.mango, lineWidth: 2)
+                                RoundedRectangle(cornerRadius: 14).stroke(Palette.accent, lineWidth: 2)
                             }
                         }
                     }
@@ -176,11 +176,11 @@ private struct NativeStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("What's your native language?").font(.largeTitle.bold())
-            Text("We picked it from your phone's settings.").font(.footnote).foregroundStyle(Palette.textOnGrape)
+            Text("We picked it from your phone's settings.").font(.footnote).foregroundStyle(Palette.textSecondary)
             TextField(text: $query) { Text("Search") }
                 .padding(.horizontal, 12)
                 .frame(height: 44)
-                .background(Palette.grapeDeep, in: RoundedRectangle(cornerRadius: 14))
+                .background(Palette.surface, in: RoundedRectangle(cornerRadius: 14))
             ScrollView {
                 LazyVStack(spacing: 8) {
                     if model.nativeOptions.isEmpty { LanguagesLoading() }
@@ -189,14 +189,14 @@ private struct NativeStep: View {
                             HStack {
                                 Text(lang.localizedName())
                                 Spacer()
-                                if selection == lang.code { Image(systemName: "checkmark").foregroundStyle(Palette.mango) }
+                                if selection == lang.code { Image(systemName: "checkmark").foregroundStyle(Palette.accent) }
                             }
                             .padding(.horizontal, 16)
                             .frame(minHeight: 52)
-                            .background(Palette.grapeDeep, in: RoundedRectangle(cornerRadius: 14))
+                            .background(Palette.surface, in: RoundedRectangle(cornerRadius: 14))
                             .overlay {
                                 if selection == lang.code {
-                                    RoundedRectangle(cornerRadius: 14).stroke(Palette.mango, lineWidth: 2)
+                                    RoundedRectangle(cornerRadius: 14).stroke(Palette.accent, lineWidth: 2)
                                 }
                             }
                         }
@@ -236,34 +236,34 @@ private struct LevelStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("How much \(languageName) do you know?").font(.largeTitle.bold()).padding(.bottom, 8)
-            card(level: 1, title: "Just starting", detail: "I know a few words and phrases.", color: Palette.lagoon)
-            card(level: 3, title: "Can get by", detail: "I can follow slow, simple conversations.", color: Palette.mango)
-            card(level: 5, title: "Pretty comfortable", detail: "I understand most everyday talk.", color: Palette.bubblegum)
+            card(level: 1, title: "Just starting", detail: "I know a few words and phrases.")
+            card(level: 3, title: "Can get by", detail: "I can follow slow, simple conversations.", color: Palette.accent)
+            card(level: 5, title: "Pretty comfortable", detail: "I understand most everyday talk.")
             if failed {
                 Text("Couldn't connect. Check your connection and tap again.")
                     .font(.footnote).foregroundStyle(Palette.destructive)
             }
             Text("A rough guess is fine. It only steers which clips you see first, and you can change it in Me.")
-                .font(.footnote).foregroundStyle(Palette.textOnGrape)
+                .font(.footnote).foregroundStyle(Palette.textSecondary)
             Spacer()
         }
         .padding(24)
     }
 
-    private func card(level: Int, title: LocalizedStringKey, detail: LocalizedStringKey, color: Color) -> some View {
+    private func card(level: Int, title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
         Button { pick(level) } label: {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.body.weight(.semibold))
-                    Text(detail).font(.subheadline)
+                    Text(detail).font(.subheadline).foregroundStyle(Palette.textSecondary)
                 }
                 Spacer()
-                if registering == level { ProgressView().tint(Palette.night) }
+                if registering == level { ProgressView().tint(Palette.accent) }
             }
-            .foregroundStyle(Palette.night)
+            .foregroundStyle(Palette.textPrimary)
             .padding(16)
             .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .background(color, in: RoundedRectangle(cornerRadius: 14))
+            .background(registering == level ? Palette.accentTint : Palette.surface, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
         .disabled(registering != nil)

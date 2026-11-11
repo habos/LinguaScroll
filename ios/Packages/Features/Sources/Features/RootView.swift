@@ -13,7 +13,7 @@ public struct RootView: View {
         Group {
             switch model.phase {
             case .launching:
-                Palette.night.ignoresSafeArea()
+                Palette.base.ignoresSafeArea()
             case .blocked:
                 BlockedView()
             case .onboarding:
@@ -24,7 +24,7 @@ public struct RootView: View {
         }
         .environment(model)
         .preferredColorScheme(.dark)
-        .tint(Palette.mango)
+        .tint(Palette.accent)
         .task { await model.launch() }
     }
 }
@@ -40,7 +40,7 @@ struct BlockedView: View {
         .foregroundStyle(Palette.textPrimary)
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Palette.night.ignoresSafeArea())
+        .background(Palette.base.ignoresSafeArea())
     }
 }
 
@@ -85,7 +85,7 @@ struct FeedPlaceholder: View {
     }
 }
 
-/// "{Language} · {CEFR}" pill on grape (tap opens the switcher in V6).
+/// "{Language} · {CEFR}" pill on the accent tint (tap opens the switcher in V6).
 struct LanguagePill: View {
     @Environment(AppModel.self) private var model
     let code: String
@@ -96,14 +96,14 @@ struct LanguagePill: View {
         HStack(spacing: 4) {
             Text(model.language(code)?.localizedName() ?? code).font(.subheadline.weight(.semibold))
             if let level {
-                Text(verbatim: "· \(Level.cefr(level))").font(.subheadline).foregroundStyle(Palette.textOnGrape)
+                Text(verbatim: "· \(Level.cefr(level))").font(.subheadline).foregroundStyle(Palette.textSecondary)
             }
             Image(systemName: "chevron.down").font(.caption.weight(.semibold))
         }
         .foregroundStyle(Palette.textPrimary)
         .padding(.horizontal, 14)
         .frame(height: 34)
-        .background(Palette.grape, in: Capsule())
+        .background(Palette.accentTint, in: Capsule())
     }
 }
 
@@ -128,7 +128,7 @@ struct MePlaceholder: View {
                 .listRowBackground(Palette.surface)
             }
             .scrollContentBackground(.hidden)
-            .background(Palette.night.ignoresSafeArea())
+            .background(Palette.base.ignoresSafeArea())
             .navigationTitle(Text("Me"))
         }
     }
