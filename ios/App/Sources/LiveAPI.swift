@@ -4,7 +4,7 @@ import Foundation
 import OpenAPIRuntime
 
 /// Maps the generated client (api/openapi.yaml) onto Core's protocols.
-struct LiveAPI: SessionAPI, CatalogAPI, UserAPI {
+struct LiveAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
     let baseURL: URL
 
     private func client(_ token: String? = nil) -> Client {
@@ -65,6 +65,88 @@ struct LiveAPI: SessionAPI, CatalogAPI, UserAPI {
         }
     }
 
+    func putLanguage(_ code: String, level: Int, active: Bool?, token: String) async throws -> UserProfile {
+        let output = try await transport {
+            try await client(token).putMyLanguage(path: .init(code: code), body: .json(.init(level: level, isActive: active)))
+        }
+        switch output {
+        case .ok(let ok): return Self.user(try ok.body.json)
+        case .default(let status, let r): throw Self.error(status, try? r.body.json)
+        }
+    }
+
+    // MARK: Feed and clip actions
+
+    func feed(language: String, cursor: String?, token: String) async throws -> FeedPage {
+        switch try await transport({ try await client(token).getFeed(query: .init(language: language, cursor: cursor)) }) {
+        case .ok(let ok):
+            let page = try ok.body.json
+            return FeedPage(items: page.items.map(Self.card), nextCursor: page.nextCursor)
+        case .default(let status, let r):
+            throw Self.error(status, try? r.body.json)
+        }
+    }
+
+    func setLiked(_ liked: Bool, videoID: String, token: String) async throws {
+        let c = client(token)
+        if liked {
+            switch try await transport({ try await c.likeVideo(path: .init(id: videoID)) }) {
+            case .noContent: return
+            case .default(let status, let r): throw Self.error(status, try? r.body.json)
+            }
+        } else {
+            switch try await transport({ try await c.unlikeVideo(path: .init(id: videoID)) }) {
+            case .noContent: return
+            case .default(let status, let r): throw Self.error(status, try? r.body.json)
+            }
+        }
+    }
+
+    func setSaved(_ saved: Bool, videoID: String, token: String) async throws {
+        let c = client(token)
+        if saved {
+            switch try await transport({ try await c.saveVideo(path: .init(id: videoID)) }) {
+            case .noContent: return
+            case .default(let status, let r): throw Self.error(status, try? r.body.json)
+            }
+        } else {
+            switch try await transport({ try await c.unsaveVideo(path: .init(id: videoID)) }) {
+            case .noContent: return
+            case .default(let status, let r): throw Self.error(status, try? r.body.json)
+            }
+        }
+    }
+
+    func hide(videoID: String, token: String) async throws {
+        switch try await transport({ try await client(token).hideVideo(path: .init(id: videoID)) }) {
+        case .noContent: return
+        case .default(let status, let r): throw Self.error(status, try? r.body.json)
+        }
+    }
+
+    func setChannelBlocked(_ blocked: Bool, channelID: String, token: String) async throws {
+        let c = client(token)
+        if blocked {
+            switch try await transport({ try await c.blockChannel(path: .init(channelId: channelID)) }) {
+            case .noContent: return
+            case .default(let status, let r): throw Self.error(status, try? r.body.json)
+            }
+        } else {
+            switch try await transport({ try await c.unblockChannel(path: .init(channelId: channelID)) }) {
+            case .noContent: return
+            case .default(let status, let r): throw Self.error(status, try? r.body.json)
+            }
+        }
+    }
+
+    func report(videoID: String, reason: ReportReason, token: String) async throws {
+        let body = Components.Schemas.ReportRequest(reason: .init(rawValue: reason.rawValue)!)
+        switch try await transport({ try await client(token).reportVideo(path: .init(id: videoID), body: .json(body)) }) {
+        case .noContent: return
+        case .default(let status, let r): throw Self.error(status, try? r.body.json)
+        }
+    }
+
     func postEvents(_ events: [ClientEvent], token: String) async throws {
         let payload = try events.map { e in
             Components.Schemas.Event(
@@ -92,6 +174,15 @@ struct LiveAPI: SessionAPI, CatalogAPI, UserAPI {
             uiLanguage: u.uiLanguage,
             nativeLanguage: u.nativeLanguage,
             learning: u.learning.map { LearningLanguage(language: $0.language, level: $0.level, isActive: $0.isActive) }
+        )
+    }
+
+    private static func card(_ v: Components.Schemas.VideoCard) -> VideoCard {
+        VideoCard(
+            id: v.id, language: v.language, level: v.level, durationMs: v.durationMs, aspect: v.aspect,
+            youtubeID: v.youtube.videoId, title: v.youtube.title, channelID: v.youtube.channelId,
+            channelTitle: v.youtube.channelTitle, hasCaptions: v.youtube.hasCaptions,
+            liked: v.viewer.liked, saved: v.viewer.saved
         )
     }
 

@@ -8,13 +8,15 @@ public struct AppDependencies: Sendable {
     public var session: SessionManager
     public var catalog: any CatalogAPI
     public var users: any UserAPI
+    public var feed: any FeedAPI
     public var events: BatchingEventLogger
 
-    public init(keychain: any KeychainStore, session: SessionManager, catalog: any CatalogAPI, users: any UserAPI, events: BatchingEventLogger) {
+    public init(keychain: any KeychainStore, session: SessionManager, catalog: any CatalogAPI, users: any UserAPI, feed: any FeedAPI, events: BatchingEventLogger) {
         self.keychain = keychain
         self.session = session
         self.catalog = catalog
         self.users = users
+        self.feed = feed
         self.events = events
     }
 }
@@ -95,6 +97,19 @@ public final class AppModel {
         let users = deps.users
         if let fresh = try? await deps.session.authorized({ try await users.me(token: $0) }) {
             apply(fresh)
+        }
+    }
+
+    /// Makes `code` the feed language (optimistic; the server is told in the background).
+    public func switchLanguage(to code: String) {
+        guard code != activeLanguage, var user, let level = user.learning.first(where: { $0.language == code })?.level else { return }
+        for i in user.learning.indices { user.learning[i].isActive = user.learning[i].language == code }
+        apply(user)
+        let users = deps.users
+        Task {
+            if let fresh = try? await deps.session.authorized({ try await users.putLanguage(code, level: level, active: true, token: $0) }) {
+                apply(fresh)
+            }
         }
     }
 

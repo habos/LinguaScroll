@@ -115,4 +115,6 @@ public protocol CatalogAPI: Sendable {
 /// Authenticated calls about this device's user. `token` comes from `SessionManager.authorized`.
 public protocol UserAPI: Sendable {
     func me(token: String) async throws -> UserProfile
+    /// `PUT /v1/me/languages/{code}`: add a language, change its level, or make it active.
+    func putLanguage(_ code: String, level: Int, active: Bool?, token: String) async throws -> UserProfile
 }

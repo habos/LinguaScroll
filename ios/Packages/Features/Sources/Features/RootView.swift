@@ -47,41 +47,13 @@ struct BlockedView: View {
 struct MainTabs: View {
     var body: some View {
         TabView {
-            FeedPlaceholder()
+            FeedScreen()
                 .tabItem { Label("Feed", systemImage: "play.rectangle.fill") }
             MePlaceholder()
                 .tabItem { Label("Me", systemImage: "person.crop.circle") }
         }
         .toolbarBackground(Palette.cinema, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-    }
-}
-
-/// Stand-in until the V6 feed lands: shows which language the feed will play.
-struct FeedPlaceholder: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                LanguagePill(code: model.activeLanguage)
-                Spacer()
-            }
-            .frame(height: 44)
-            .padding(.horizontal, 16)
-            Spacer()
-            VStack(spacing: 12) {
-                ProgressView().tint(Palette.textPrimary)
-                Text("Finding \(languageName) clips…").foregroundStyle(Palette.textSecondary)
-            }
-            Spacer()
-        }
-        .foregroundStyle(Palette.textPrimary)
-        .background(Palette.cinema.ignoresSafeArea())
-    }
-
-    private var languageName: String {
-        model.language(model.activeLanguage)?.localizedName() ?? model.activeLanguage
     }
 }
 
@@ -102,6 +74,7 @@ struct LanguagePill: View {
         }
         .foregroundStyle(Palette.textPrimary)
         .padding(.horizontal, 14)
+        .frame(minHeight: 44)
         .frame(height: 34)
         .background(Palette.accentTint, in: Capsule())
     }

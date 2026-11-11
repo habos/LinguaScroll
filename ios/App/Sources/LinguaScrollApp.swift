@@ -19,7 +19,7 @@ struct LinguaScrollApp: App {
             fileURL: BatchingEventLogger.defaultFileURL()
         )
         model = AppModel(deps: AppDependencies(
-            keychain: keychain, session: session, catalog: api, users: api, events: events
+            keychain: keychain, session: session, catalog: api, users: api, feed: api, events: events
         ))
         Task { await events.start() }
     }
