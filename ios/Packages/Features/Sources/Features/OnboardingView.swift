@@ -237,7 +237,7 @@ private struct LevelStep: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("How much \(languageName) do you know?").font(.largeTitle.bold()).padding(.bottom, 8)
             card(level: 1, title: "Just starting", detail: "I know a few words and phrases.")
-            card(level: 3, title: "Can get by", detail: "I can follow slow, simple conversations.", color: Palette.accent)
+            card(level: 3, title: "Can get by", detail: "I can follow slow, simple conversations.")
             card(level: 5, title: "Pretty comfortable", detail: "I understand most everyday talk.")
             if failed {
                 Text("Couldn't connect. Check your connection and tap again.")
