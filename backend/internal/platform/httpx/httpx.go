@@ -160,8 +160,9 @@ func bearer(r *http.Request) (string, bool) {
 	return strings.TrimSpace(h[len(p):]), true
 }
 
-// RateLimiter allows perMinute requests a minute per key (the bearer token,
-// or the client address for requests without one), with a burst of the same.
+// RateLimiter allows perMinute requests a minute per key, with a burst of
+// the same. ByUser keys on the authenticated user; ByAddress keys on the
+// client address, so made-up tokens can't each get a fresh bucket.
 type RateLimiter struct {
 	perMinute int
 	mu        sync.Mutex
@@ -202,15 +203,8 @@ func (l *RateLimiter) Allow(key string) bool {
 	return b.lim.AllowN(now, 1)
 }
 
-// Middleware rejects requests over the limit with 429.
-func (l *RateLimiter) Middleware(next http.Handler) http.Handler {
+func (l *RateLimiter) limit(key string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key, ok := bearer(r)
-		if ok {
-			key = "t:" + key
-		} else {
-			key = "a:" + clientAddr(r)
-		}
 		if !l.Allow(key) {
 			w.Header().Set("Retry-After", "1")
 			WriteError(w, http.StatusTooManyRequests, "rate_limited", "too many requests")
@@ -220,10 +214,45 @@ func (l *RateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+// ByAddress limits every request by client address. Put it before Auth.
+func (l *RateLimiter) ByAddress(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		l.limit("a:"+clientAddr(r), next).ServeHTTP(w, r)
+	})
+}
+
+// ByUser limits authenticated requests by user ID, and the rest (public
+// routes) by client address. Put it after Auth.
+func (l *RateLimiter) ByUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := "a:" + clientAddr(r)
+		if u, ok := auth.UserFrom(r.Context()); ok {
+			key = "u:" + u.ID.String()
+		}
+		l.limit(key, next).ServeHTTP(w, r)
+	})
+}
+
 func clientAddr(r *http.Request) string {
 	addr := r.RemoteAddr
 	if i := strings.LastIndexByte(addr, ':'); i > 0 {
 		return addr[:i]
 	}
 	return addr
+}
+
+// APIError is an error a handler returns to answer with a specific status
+// and error code. The server's response error handler writes it in the
+// standard shape; any other error becomes a logged 500.
+type APIError struct {
+	Status  int
+	Code    string
+	Message string
+}
+
+func (e *APIError) Error() string { return e.Code + ": " + e.Message }
+
+// E returns an *APIError.
+func E(status int, code, message string) error {
+	return &APIError{Status: status, Code: code, Message: message}
 }

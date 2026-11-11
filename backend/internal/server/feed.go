@@ -24,7 +24,7 @@ func (s *Server) GetFeed(ctx context.Context, req api.GetFeedRequestObject) (api
 	if err != nil {
 		return feedError(http.StatusBadRequest, "bad_cursor", "cursor is not valid"), nil
 	}
-	page, err := feed.Service{DB: s.db}.Next(ctx, u.ID, req.Params.Language, cur)
+	page, err := s.feed.Next(ctx, u.ID, req.Params.Language, cur)
 	if errors.Is(err, feed.ErrUnknownLanguage) {
 		return feedError(http.StatusBadRequest, "unknown_language", "language is not a learnable language code"), nil
 	}
