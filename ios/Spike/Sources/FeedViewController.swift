@@ -43,7 +43,7 @@ final class FeedViewController: UIViewController, UICollectionViewDataSource, UI
     private var collectionView: FeedCollectionView!
 
     /// Exactly two players, ever: slot index % 2.
-    private let players = [YouTubePlayer(name: "A"), YouTubePlayer(name: "B")]
+    private let players: [YouTubePlayer]
     /// Which feed index each slot is currently assigned to.
     private var assigned: [Int?] = [nil, nil]
 
@@ -54,7 +54,8 @@ final class FeedViewController: UIViewController, UICollectionViewDataSource, UI
     private var loops = 0
     private var observers: [NSObjectProtocol] = []
 
-    init(ids: [String], simultaneous: Bool, stats: SpikeStats) {
+    init(ids: [String], simultaneous: Bool, controls: Bool, stats: SpikeStats) {
+        self.players = [YouTubePlayer(name: "A", controls: controls), YouTubePlayer(name: "B", controls: controls)]
         self.ids = ids
         self.simultaneous = simultaneous
         self.stats = stats

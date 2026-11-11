@@ -43,7 +43,7 @@ final class YouTubePlayer: NSObject, WKScriptMessageHandler {
     /// (player, videoID, state, positionMs)
     var onState: ((YouTubePlayer, String?, YTState, Int) -> Void)?
 
-    init(name: String) {
+    init(name: String, controls: Bool) {
         self.name = name
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -67,7 +67,7 @@ final class YouTubePlayer: NSObject, WKScriptMessageHandler {
         // YouTube needs a Referer: the page's origin is https://<bundle id lowercased>.
         let bundleID = (Bundle.main.bundleIdentifier ?? "com.linguascroll.spike").lowercased()
         let origin = "https://\(bundleID)"
-        webView.loadHTMLString(Self.html(origin: origin), baseURL: URL(string: origin))
+        webView.loadHTMLString(Self.html(origin: origin, controls: controls), baseURL: URL(string: origin))
     }
 
     // MARK: Commands
@@ -123,7 +123,7 @@ final class YouTubePlayer: NSObject, WKScriptMessageHandler {
 
     // MARK: Page
 
-    private static func html(origin: String) -> String {
+    private static func html(origin: String, controls: Bool) -> String {
         """
         <!doctype html>
         <html><head>
@@ -141,7 +141,7 @@ final class YouTubePlayer: NSObject, WKScriptMessageHandler {
           function onYouTubeIframeAPIReady(){
             player = new YT.Player('player', {
               width: '100%', height: '100%',
-              playerVars: { playsinline: 1, rel: 0, controls: 1, origin: '\(origin)' },
+              playerVars: { playsinline: 1, rel: 0, controls: \(controls ? 1 : 0), fs: 0, iv_load_policy: 3, origin: '\(origin)' },
               events: {
                 onReady: function(){ post({type:'ready'}); },
                 onStateChange: function(e){ post({type:'state', state:e.data, t:pos()}); },
