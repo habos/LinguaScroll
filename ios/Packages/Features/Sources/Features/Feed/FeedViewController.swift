@@ -23,7 +23,6 @@ final class FeedViewController: UIViewController, UICollectionViewDelegate {
     private(set) var players: [YouTubePlayer] = []
     private var assigned: [String?] = [nil, nil] // card id per slot
     private var current = 0
-    private var observers: [NSObjectProtocol] = []
 
     // Per-view measurements for view_end.
     private var becameCurrentAt = Date()
@@ -94,18 +93,16 @@ final class FeedViewController: UIViewController, UICollectionViewDelegate {
             self.collectionView.scrollToItem(at: IndexPath(item: index, section: 0), at: .top, animated: true)
         }
 
+        // Selector-based observers are removed automatically when the controller goes away.
         let nc = NotificationCenter.default
-        observers.append(nc.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.pauseCurrent(endView: true) }
-        })
-        observers.append(nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.becomeCurrent(self?.current ?? 0, force: true) }
-        })
+        nc.addObserver(self, selector: #selector(didEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        nc.addObserver(self, selector: #selector(willEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         applySnapshot()
         startObservingModel()
     }
 
-    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+    @objc private func didEnterBackground() { pauseCurrent(endView: true) }
+    @objc private func willEnterForeground() { becomeCurrent(current, force: true) }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()

@@ -133,7 +133,7 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
 
     private static func html(origin: String, captionsLanguage: String?) -> String {
         let captionVars = captionsLanguage.map { ", cc_load_policy: 1, cc_lang_pref: '\($0)'" } ?? ", cc_load_policy: 0"
-        """
+        return """
         <!doctype html>
         <html><head>
         <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
