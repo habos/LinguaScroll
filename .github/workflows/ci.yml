@@ -82,4 +82,4 @@ jobs:
           xcodebuild test -project LinguaScroll.xcodeproj -scheme LinguaScroll
           -destination 'platform=iOS Simulator,name=iPhone SE (3rd generation)' -skipPackagePluginValidation
           CODE_SIGNING_ALLOWED=NO 2>&1
-          | grep -E '(error|warning):|\*\* (BUILD|TEST)|Test Case|Executed''
+          | grep -E '(error|warning):|\*\* (BUILD|TEST)|Test Case|Executed'
