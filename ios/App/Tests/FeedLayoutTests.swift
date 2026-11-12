@@ -90,4 +90,13 @@ final class FeedLayoutTests: XCTestCase {
         let expected = "https://" + (Bundle.main.bundleIdentifier ?? "").lowercased()
         XCTAssertEqual(player.baseURL?.absoluteString, expected)
     }
+
+    // Controls flag: off by default (video only), on brings back YouTube's own controls.
+    func testPlayerControlsFlag() {
+        let off = YouTubePlayer.html(origin: "https://app.linguascroll.ios", captionsLanguage: nil, controls: false)
+        XCTAssertTrue(off.contains("controls: 0"))
+        let on = YouTubePlayer.html(origin: "https://app.linguascroll.ios", captionsLanguage: nil, controls: true)
+        XCTAssertTrue(on.contains("controls: 1"))
+        XCTAssertTrue(off.contains("playsinline: 1"))
+    }
 }

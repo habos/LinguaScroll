@@ -39,6 +39,11 @@ public final class FeedModel {
     public private(set) var barMessage: BarMessage?
     public private(set) var currentIndex = 0
     public var captionsOn: Bool
+    /// YouTube's own progress bar and title on the player. Off by default (Harry, 2026-11-12):
+    /// `controls=0` is a supported IFrame parameter, nothing of ours covers the player.
+    /// Debug switch: `defaults write app.linguascroll.ios feed.youtubeControls -bool YES`.
+    public var youtubeControls: Bool { defaults.bool(forKey: Self.youtubeControlsKey) }
+    static let youtubeControlsKey = "feed.youtubeControls"
     /// True while SwiftUI shows something over the feed (e.g. the language switcher): the clip pauses.
     public var externallyPaused = false
 

@@ -46,7 +46,8 @@ final class FeedViewController: UIViewController, UICollectionViewDelegate {
         super.viewDidLoad()
         view.backgroundColor = .black
         let captions = model.captionsOn ? model.language : nil
-        players = [YouTubePlayer(name: "A", captionsLanguage: captions), YouTubePlayer(name: "B", captionsLanguage: captions)]
+        let controls = model.youtubeControls
+        players = ["A", "B"].map { YouTubePlayer(name: $0, captionsLanguage: captions, controls: controls) }
 
         let layout = UICollectionViewFlowLayout()
         layout.minimumLineSpacing = 0
@@ -172,6 +173,14 @@ final class FeedViewController: UIViewController, UICollectionViewDelegate {
         guard h > 0 else { return }
         let visible = 1 - abs(sv.contentOffset.y - CGFloat(current) * h) / h
         if visible <= 0.5 { pauseCurrent(endView: false) }
+        // Start the next clip as soon as it is more than half visible (the earliest YouTube
+        // allows), not when the swipe settles. Only for user swipes; settle() covers the rest.
+        guard sv.isTracking || sv.isDragging || sv.isDecelerating, currentCardID != nil else { return }
+        let nearest = max(0, min(model.cards.count - 1, Int((sv.contentOffset.y / h).rounded())))
+        let nearestVisible = 1 - abs(sv.contentOffset.y - CGFloat(nearest) * h) / h
+        if nearestVisible > 0.5, let card = model.cards[safe: nearest], card.id != currentCardID {
+            becomeCurrent(nearest, force: false)
+        }
     }
 
     func scrollViewDidEndDecelerating(_ sv: UIScrollView) { settle() }

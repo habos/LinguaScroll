@@ -52,7 +52,8 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
 
     /// `captionsLanguage`: YouTube's own captions in that language (`cc_load_policy=1`), or nil for off.
     /// All clips in one feed share a language, so this is fixed per player.
-    init(name: String, captionsLanguage: String?) {
+    /// `controls`: YouTube's progress bar and title (`controls=1`); off shows only the video.
+    init(name: String, captionsLanguage: String?, controls: Bool = false) {
         self.name = name
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -75,7 +76,7 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
 
         let origin = Self.origin()
         baseURL = origin
-        webView.loadHTMLString(Self.html(origin: origin.absoluteString, captionsLanguage: captionsLanguage), baseURL: origin)
+        webView.loadHTMLString(Self.html(origin: origin.absoluteString, captionsLanguage: captionsLanguage, controls: controls), baseURL: origin)
     }
 
     // MARK: Commands
@@ -131,7 +132,7 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
 
     // MARK: Page
 
-    private static func html(origin: String, captionsLanguage: String?) -> String {
+    static func html(origin: String, captionsLanguage: String?, controls: Bool) -> String {
         let captionVars = captionsLanguage.map { ", cc_load_policy: 1, cc_lang_pref: '\($0)'" } ?? ", cc_load_policy: 0"
         return """
         <!doctype html>
@@ -150,7 +151,7 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
           function onYouTubeIframeAPIReady(){
             player = new YT.Player('player', {
               width: '100%', height: '100%',
-              playerVars: { playsinline: 1, rel: 0, controls: 1, origin: '\(origin)'\(captionVars) },
+              playerVars: { playsinline: 1, rel: 0, controls: \(controls ? 1 : 0), fs: 0, iv_load_policy: 3, origin: '\(origin)'\(captionVars) },
               events: {
                 onReady: function(){ post({type:'ready'}); },
                 onStateChange: function(e){ post({type:'state', state:e.data, t:pos()}); },
