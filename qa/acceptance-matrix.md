@@ -78,10 +78,10 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V5-01 | Fresh install in simulator: onboarding to feed placeholder in < 30 s | M | [manual/ios-install.md](manual/ios-install.md) | todo |
 | V5-02 | Delete and reinstall: no onboarding, same user ID, likes still there | M | [manual/ios-install.md](manual/ios-install.md) | todo |
 | V5-03 | Birth year 2016 shows the blocked screen, which survives reinstall | M | [manual/ios-install.md](manual/ios-install.md) | todo |
-| V5-04 | Killing the app mid-batch sends pending events once after relaunch | A+M | | todo |
-| V5-05 | Unit tests: Keychain install ID, 401 recovery, event retry | A | | todo |
-| V5-06 **QA+** | No IDFA access, no ATT prompt (no `AdSupport`/`AppTrackingTransparency` import) | A | | todo |
-| V5-07 **QA+** | 401 recovery retries once only (no loop when re-register also fails) | A | | todo |
+| V5-04 | Killing the app mid-batch sends pending events once after relaunch | A+M | `EventLoggerTests.testPendingEventsSurviveRelaunchAndAreSentOnce`, `testFailedFlushRetriesWithSameIDs`, `testBatchesAreCappedAt200`; device run owed | pass (automated half) @aa03bfc (PR #2) |
+| V5-05 | Unit tests: Keychain install ID, 401 recovery, event retry | A | `InstallIDTests.*`, `SessionManagerTests.testUnauthorizedReRegistersWithSameInstallIDAndRetriesOnce`, `EventLoggerTests.*` | pass @aa03bfc (PR #2) |
+| V5-06 **QA+** | No IDFA access, no ATT prompt (no `AdSupport`/`AppTrackingTransparency` import) | A | grep clean at aa03bfc; CI grep step requested | gap (asked on PR #2) |
+| V5-07 **QA+** | 401 recovery retries once only (no loop when re-register also fails) | A | `SessionManagerTests.testSecondUnauthorizedIsNotRetriedAgain` | pass @aa03bfc (PR #2) |
 | V5-08 **QA+** | No hard-coded user-facing strings (String Catalog) | A (lint) | | todo |
 
 ## V6 iOS YouTube feed (YouTube-compliance heavy)
@@ -91,17 +91,19 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V6-01 | Swiping over the player moves to the next clip on a real device | M | [manual/device-pass.md](manual/device-pass.md) | todo |
 | V6-02 | Median `ttff_ms` for cued clips < 800 ms on Wi-Fi (target, logged) | M | [manual/device-pass.md](manual/device-pass.md) | todo |
 | V6-03 | Never two audio tracks at once through 30 fast swipes | M | [manual/device-pass.md](manual/device-pass.md) | todo |
-| V6-04 | A clip doesn't start until > 50% visible | A+M | | todo |
-| V6-05 | View-hierarchy snapshot test: nothing overlaps the player frame | A | | todo |
+| V6-04 | A clip doesn't start until > 50% visible | A+M | code read: pauses at ≤ 0.5, plays at > 0.5; unit test requested | gap (asked on PR #2) |
+| V6-05 | View-hierarchy snapshot test: nothing overlaps the player frame | A | `FeedLayoutTests.testNothingOverThePlayer`, `testPlaceholderSwapsWithPlayer` | pass @aa03bfc (PR #2) |
 | V6-06 | Memory flat over 50 swipes (still 2 web views) | M | [manual/device-pass.md](manual/device-pass.md) | todo |
 | V6-07 | Clips with captions show YouTube's captions in the clip language | M | [manual/device-pass.md](manual/device-pass.md) | todo |
-| V6-08 **QA+** | No gesture recognisers or tap actions attached to the player view | A | | todo |
-| V6-09 **QA+** | Player ≥ 200×200 pt on the smallest supported device (iPhone SE) | A | | todo |
-| V6-10 **QA+** | `baseURL` is `https://<bundle id lowercased>` | A | | todo |
-| V6-11 **QA+** | Errors 101/150 auto-advance and call hide; clip never returns | A+M | | todo |
+| V6-08 **QA+** | No gesture recognisers or tap actions attached to the player view | A | `FeedLayoutTests.testNoGestureRecognisersOnPlayer` | pass @aa03bfc (PR #2) |
+| V6-09 **QA+** | Player ≥ 200×200 pt on the smallest supported device (iPhone SE) | A | `FeedLayoutTests.testPlayerIsAtLeast200x200`, `testFitKeepsAspectAndCentres` (iPhone SE sim) | pass @aa03bfc (PR #2) |
+| V6-10 **QA+** | `baseURL` is `https://<bundle id lowercased>` | A | `FeedLayoutTests.testBaseURLIsBundleIDOrigin` | pass @aa03bfc (PR #2) |
+| V6-11 **QA+** | Errors 101/150 auto-advance and call hide; clip never returns | A+M | code read: 101/150 → hide + advance; test requested | gap (asked on PR #2) |
 | V6-12 **QA+** | Pauses on backgrounding; no audio from offscreen player | M | [manual/device-pass.md](manual/device-pass.md) | todo |
-| V6-13 **QA+** | Like/save roll back with a toast when the call fails | A | | todo |
-| V6-14 **QA+** | Share link is `https://youtube.com/shorts/<id>` | A | | todo |
+| V6-13 **QA+** | Like/save roll back with a toast when the call fails | A | test with failing fake requested | gap (asked on PR #2) |
+| V6-14 **QA+** | Share link is `https://youtube.com/shorts/<id>` | A | `VideoCard.shareURL`; test requested | gap (asked on PR #2) |
+| V6-16 **QA+** | Audio session is `.playback`: clips have sound with the mute switch on | A+M | device-pass step 18; test requested | fail @aa03bfc (PR #2: not set in the app) |
+| V6-17 **QA+** | Video IDs are validated before being passed into the player's JavaScript | A | test requested | gap (asked on PR #2) |
 | V6-15 **QA+** | Empty feed page (`items: []`, `next_cursor: null`) shows an "all caught up" state and retries later; first-page loading and error states exist | A+M | design: UX spec §4 "Playback and states" (docs/ux/v0-ux-spec.md); device-pass step 17 | todo |
 
 ## V7 iOS Saved, Liked and settings
@@ -109,9 +111,9 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | ID | Criterion | Type | Covered by | Status |
 |---|---|---|---|---|
 | V7-01 | Saving a clip in the feed shows it at the top of Saved on return to Me | A+M | | todo |
-| V7-02 | Playing from Saved swipes through saved clips only, in order | M | | todo |
-| V7-03 | Changing Spanish's level changes the next feed page's level window | A | | todo |
-| V7-04 | Reset my data returns to onboarding and old likes are gone | M | [manual/ios-install.md](manual/ios-install.md) | todo |
-| V7-05 | Unblocking a channel lets its clips appear again | A | | todo |
-| V7-06 **QA+** | Thumbnails load from YouTube's public URL; nothing cached to disk as stored data | A | | todo |
-| V7-07 **QA+** | Captions off in Settings → `cc_load_policy` not set | A | | todo |
+| V7-02 | Playing from Saved swipes through saved clips only, in order | M | `MeTests.testLibraryPlaysFromTappedClipAndPagesItsOwnList`; device check owed | pass (automated) @aa03bfc (PR #2) |
+| V7-03 | Changing Spanish's level changes the next feed page's level window | A | `MeTests.testChangingLevelUpdatesUserAndCallsPut` | pass @aa03bfc (PR #2) |
+| V7-04 | Reset my data returns to onboarding and old likes are gone | M | `MeTests.testResetErasesAndReturnsToOnboarding`, `EventLoggerTests.testDiscardAllDropsPendingEventsAndFile`; [manual/ios-install.md](manual/ios-install.md) E | pass (automated half) @aa03bfc (PR #2) |
+| V7-05 | Unblocking a channel lets its clips appear again | A | `MeTests.testBlockedChannelIsListedAndUndoRemovesIt` | pass @aa03bfc (PR #2) |
+| V7-06 **QA+** | Thumbnails load from YouTube's public URL; nothing cached to disk as stored data | A | `MeTests.testThumbnailsAreNotStoredOnDisk` | pass @aa03bfc (PR #2) |
+| V7-07 **QA+** | Captions off in Settings → `cc_load_policy` not set | A | `MeTests.testCaptionsOffLeavesCCLoadPolicyOut`, `testCaptionsSettingPersists` | pass @aa03bfc (PR #2) |
