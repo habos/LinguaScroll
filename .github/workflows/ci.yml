@@ -64,6 +64,12 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: No advertising ID or tracking prompt (QA V5-06)
+        shell: bash
+        run: |
+          if grep -rnE 'AdSupport|AppTrackingTransparency|advertisingIdentifier' ios --include='*.swift' --include='*.yml' --include='*.plist'; then
+            echo "::error::v0 must not touch the advertising ID or ATT"; exit 1
+          fi
       - name: Core unit tests (install ID, 401 recovery, event retry)
         working-directory: ios/Packages/Core
         run: swift test

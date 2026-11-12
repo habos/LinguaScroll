@@ -8,6 +8,7 @@ struct LinguaScrollApp: App {
     private let model: AppModel
 
     init() {
+        PlaybackAudio.configure()
         let baseURL = (Bundle.main.object(forInfoDictionaryKey: "APIBaseURL") as? String)
             .flatMap(URL.init(string:)) ?? URL(string: "http://localhost:8080")!
         let keychain = SystemKeychain.shared

@@ -82,9 +82,25 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
 
     // MARK: Commands
 
+    /// YouTube video IDs are 11 characters of `[A-Za-z0-9_-]`. Anything else never reaches the page's
+    /// JavaScript; the clip is reported as YouTube error 2 (invalid parameter) and skipped.
+    static func isValidVideoID(_ id: String) -> Bool {
+        id.utf8.count == 11 && id.utf8.allSatisfy { videoIDBytes.contains($0) }
+    }
+
+    private static let videoIDBytes = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-".utf8)
+
+    private func rejectInvalid(_ id: String) -> Bool {
+        guard !Self.isValidVideoID(id) else { return false }
+        videoID = id
+        state = .error(2)
+        onState?(self, id, .error(2), 0)
+        return true
+    }
+
     /// Load the video paused and silent (thumbnail shows, nothing plays).
     func cue(_ id: String) {
-        guard id != videoID else { return }
+        guard id != videoID, !rejectInvalid(id) else { return }
         videoID = id
         state = .unstarted
         run("cue('\(id)')")
@@ -93,6 +109,7 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
     /// Start playing `id` (cueing first if it isn't the loaded one).
     func play(_ id: String) {
         if id != videoID {
+            if rejectInvalid(id) { return }
             videoID = id
             state = .unstarted
             run("load('\(id)')")

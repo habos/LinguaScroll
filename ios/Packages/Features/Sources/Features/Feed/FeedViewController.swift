@@ -180,17 +180,26 @@ final class FeedViewController: UIViewController, UICollectionViewDelegate {
     func scrollViewDidScroll(_ sv: UIScrollView) {
         let h = sv.bounds.height
         guard h > 0 else { return }
-        let visible = 1 - abs(sv.contentOffset.y - CGFloat(current) * h) / h
-        if visible <= 0.5 { pauseCurrent(endView: false) }
+        if !Self.isPlayable(Self.visibleFraction(offset: sv.contentOffset.y, index: current, pageHeight: h)) {
+            pauseCurrent(endView: false)
+        }
         // Start the next clip as soon as it is more than half visible (the earliest YouTube
         // allows), not when the swipe settles. Only for user swipes; settle() covers the rest.
         guard sv.isTracking || sv.isDragging || sv.isDecelerating, currentCardID != nil else { return }
         let nearest = max(0, min(model.cards.count - 1, Int((sv.contentOffset.y / h).rounded())))
-        let nearestVisible = 1 - abs(sv.contentOffset.y - CGFloat(nearest) * h) / h
-        if nearestVisible > 0.5, let card = model.cards[safe: nearest], card.id != currentCardID {
+        if Self.isPlayable(Self.visibleFraction(offset: sv.contentOffset.y, index: nearest, pageHeight: h)), let card = model.cards[safe: nearest], card.id != currentCardID {
             becomeCurrent(nearest, force: false)
         }
     }
+
+    /// How much of page `index` is on screen at this scroll offset (0...1).
+    static func visibleFraction(offset: CGFloat, index: Int, pageHeight h: CGFloat) -> CGFloat {
+        guard h > 0 else { return 0 }
+        return max(0, 1 - abs(offset - CGFloat(index) * h) / h)
+    }
+
+    /// YouTube autoplay rule (QA V6-04): a clip may play only when MORE than half of it is visible.
+    static func isPlayable(_ visibleFraction: CGFloat) -> Bool { visibleFraction > 0.5 }
 
     func scrollViewDidEndDecelerating(_ sv: UIScrollView) { settle() }
     func scrollViewDidEndDragging(_ sv: UIScrollView, willDecelerate d: Bool) { if !d { settle() } }
