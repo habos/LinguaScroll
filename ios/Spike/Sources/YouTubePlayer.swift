@@ -91,6 +91,15 @@ final class YouTubePlayer: NSObject, WKScriptMessageHandler {
         }
     }
 
+    /// Muted warm-up: load the clip, let it start silently, then pause at 0 so the
+    /// first seconds are already buffered when it becomes current.
+    func prebuffer(_ id: String) {
+        guard id != videoID else { return }
+        videoID = id
+        state = .unstarted
+        run("prebuffer('\(id)')")
+    }
+
     func pause() { run("pause()") }
     func seekToStartAndPlay() { run("restart()") }
 
@@ -136,6 +145,7 @@ final class YouTubePlayer: NSObject, WKScriptMessageHandler {
         <div id="player"></div>
         <script>
           var player = null;
+          var pre = false;
           function post(m){ window.webkit.messageHandlers.yt.postMessage(m); }
           function pos(){ try { return Math.round(player.getCurrentTime()*1000); } catch(e) { return 0; } }
           function onYouTubeIframeAPIReady(){
@@ -144,14 +154,23 @@ final class YouTubePlayer: NSObject, WKScriptMessageHandler {
               playerVars: { playsinline: 1, rel: 0, controls: \(controls ? 1 : 0), fs: 0, iv_load_policy: 3, origin: '\(origin)' },
               events: {
                 onReady: function(){ post({type:'ready'}); },
-                onStateChange: function(e){ post({type:'state', state:e.data, t:pos()}); },
+                onStateChange: function(e){
+                  if (pre && e.data == 1) {
+                    player.pauseVideo(); player.seekTo(0, true); pre = false;
+                    post({type:'state', state:5, t:0}); // report as cued
+                    return;
+                  }
+                  if (pre) { return; }
+                  post({type:'state', state:e.data, t:pos()});
+                },
                 onError: function(e){ post({type:'error', code:e.data, t:pos()}); }
               }
             });
           }
-          function cue(id){ player.cueVideoById(id); }
-          function load(id){ player.loadVideoById(id); }
-          function play(){ player.playVideo(); }
+          function cue(id){ pre = false; player.cueVideoById(id); }
+          function prebuffer(id){ pre = true; player.mute(); player.loadVideoById(id); }
+          function load(id){ pre = false; player.unMute(); player.loadVideoById(id); }
+          function play(){ pre = false; player.unMute(); player.playVideo(); }
           function pause(){ player.pauseVideo(); }
           function restart(){ player.seekTo(0, true); player.playVideo(); }
         </script>

@@ -16,7 +16,8 @@ struct SpikeApp: App {
 struct SpikeRoot: View {
     @AppStorage("spike.ids") private var idsText = ""
     @AppStorage("spike.simultaneous") private var simultaneous = true
-    @AppStorage("spike.controls") private var controls = true
+    @AppStorage("spike.controls") private var controls = false
+    @AppStorage("spike.preload") private var preload = true
     @StateObject private var stats = SpikeStats()
     @State private var editing = false
 
@@ -34,8 +35,8 @@ struct SpikeRoot: View {
                     Button("Add links") { editing = true }.buttonStyle(.borderedProminent)
                 }
             } else {
-                FeedView(ids: ids, simultaneous: simultaneous, controls: controls, stats: stats)
-                    .id("\(simultaneous)-\(controls)-\(ids.joined())") // rebuild on change
+                FeedView(ids: ids, simultaneous: simultaneous, controls: controls, preload: preload, stats: stats)
+                    .id("\(simultaneous)-\(controls)-\(preload)-\(ids.joined())") // rebuild on change
             }
         }
         .background(Color.black)
@@ -47,6 +48,7 @@ struct SpikeRoot: View {
             HStack {
                 Toggle("Swipe", isOn: $simultaneous).toggleStyle(.switch).fixedSize()
                 Toggle("YT controls", isOn: $controls).toggleStyle(.switch).fixedSize()
+                Toggle("Preload", isOn: $preload).toggleStyle(.switch).fixedSize()
                 Spacer()
                 Button("Links") { editing = true }
             }
@@ -68,10 +70,11 @@ struct FeedView: UIViewControllerRepresentable {
     let ids: [String]
     let simultaneous: Bool
     let controls: Bool
+    let preload: Bool
     let stats: SpikeStats
 
     func makeUIViewController(context: Context) -> FeedViewController {
-        FeedViewController(ids: ids, simultaneous: simultaneous, controls: controls, stats: stats)
+        FeedViewController(ids: ids, simultaneous: simultaneous, controls: controls, preload: preload, stats: stats)
     }
 
     func updateUIViewController(_ vc: FeedViewController, context: Context) {}

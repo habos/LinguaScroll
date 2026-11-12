@@ -54,7 +54,10 @@ final class FeedViewController: UIViewController, UICollectionViewDataSource, UI
     private var loops = 0
     private var observers: [NSObjectProtocol] = []
 
-    init(ids: [String], simultaneous: Bool, controls: Bool, stats: SpikeStats) {
+    private let preload: Bool
+
+    init(ids: [String], simultaneous: Bool, controls: Bool, preload: Bool, stats: SpikeStats) {
+        self.preload = preload
         self.players = [YouTubePlayer(name: "A", controls: controls), YouTubePlayer(name: "B", controls: controls)]
         self.ids = ids
         self.simultaneous = simultaneous
@@ -143,6 +146,13 @@ final class FeedViewController: UIViewController, UICollectionViewDataSource, UI
         // Pause as soon as the current clip is no longer more than half visible.
         let visible = 1 - abs(sv.contentOffset.y - CGFloat(current) * h) / h
         if visible <= 0.5 { players[current % 2].pause() }
+        // Start the next clip as soon as it is more than half visible, not when the swipe settles.
+        let nearest = max(0, min(ids.count - 1, Int((sv.contentOffset.y / h).rounded())))
+        let nearestVisible = 1 - abs(sv.contentOffset.y - CGFloat(nearest) * h) / h
+        if nearest != current && nearestVisible > 0.5 {
+            stats.swipes += 1
+            becomeCurrent(nearest)
+        }
     }
 
     func scrollViewDidEndDecelerating(_ sv: UIScrollView) { settle(sv) }
@@ -198,8 +208,12 @@ final class FeedViewController: UIViewController, UICollectionViewDataSource, UI
     private func attachPlayer(to cell: FeedCell, index: Int) {
         for (slot, idx) in assigned.enumerated() where idx == index {
             cell.host(players[slot].webView)
-            if index != current { players[slot].cue(ids[index]) }
+            if index != current { warm(players[slot], ids[index]) }
         }
+    }
+
+    private func warm(_ player: YouTubePlayer, _ id: String) {
+        if preload { player.prebuffer(id) } else { player.cue(id) }
     }
 
     // MARK: Player events
@@ -225,7 +239,7 @@ final class FeedViewController: UIViewController, UICollectionViewDataSource, UI
             }
             if !nextCued, current + 1 < ids.count {
                 nextCued = true
-                players[(current + 1) % 2].cue(ids[current + 1])
+                warm(players[(current + 1) % 2], ids[current + 1])
             }
         case .ended:
             loops += 1
