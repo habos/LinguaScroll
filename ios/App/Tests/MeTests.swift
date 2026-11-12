@@ -87,7 +87,8 @@ final class MeTests: XCTestCase {
     }
 
     // V7-02: a Saved list opens on the tapped clip and pages with /v1/me/saves, never the ranked feed.
-    func testLibraryPlaysFromTappedClipAndPagesItsOwnList() async {
+    func testLibraryPlaysFromTappedClipAndPagesItsOwnList() async throws {
+        _ = try await registeredApp() // a session token, as in the app
         let model = FeedModel(library: .saved, cards: [card(1), card(2), card(3)], cursor: "c1", startIndex: 2,
                               deps: deps, captionsOn: false, defaults: defaults)
         XCTAssertEqual(model.currentIndex, 2)
@@ -95,7 +96,7 @@ final class MeTests: XCTestCase {
         XCTAssertEqual(model.state, .ready)
         await model.loadMore()
         let calls = await api.calls
-        XCTAssertEqual(calls, ["library saved c1"])
+        XCTAssertEqual(calls, ["session", "library saved c1"])
     }
 
     // V7-04 (automated half): reset calls DELETE /v1/me, forgets token and install ID, keeps the age block, goes to onboarding.
