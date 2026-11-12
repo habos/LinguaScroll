@@ -171,3 +171,38 @@ func countParams(q string) int {
 	}
 	return 1
 }
+
+func TestEventPartitionsAbsorbStrayDefaultRows(t *testing.T) {
+	ctx := context.Background()
+	pool := dbtest.New(t, false)
+	// A client with a wrong clock sent an event four months ahead before
+	// that month had a partition.
+	if _, err := pool.Exec(ctx, `INSERT INTO events (id, type, at) VALUES (gen_random_uuid(), 'impression', date_trunc('month', now()) + interval '4 months 1 day')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `SELECT ensure_event_partitions(5)`); err != nil {
+		t.Fatalf("partition job failed: %v", err)
+	}
+	var inDefault, total int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM events_default), (SELECT count(*) FROM events)`).Scan(&inDefault, &total); err != nil {
+		t.Fatal(err)
+	}
+	if inDefault != 0 || total != 1 {
+		t.Fatalf("default holds %d rows, events %d; want 0 and 1", inDefault, total)
+	}
+}
+
+func TestInsertClipsFixture(t *testing.T) {
+	pool := dbtest.New(t, false)
+	if _, err := pool.Exec(context.Background(), `INSERT INTO languages (code, english_name, native_name, script, direction, is_learnable) VALUES ('es', 'Spanish', 'Español', 'Latin', 'ltr', true)`); err != nil {
+		t.Fatal(err)
+	}
+	ids := dbtest.InsertClips(t, pool, "es", 12, 4, nil)
+	var n, ch int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*), count(DISTINCT youtube_channel_id) FROM videos WHERE status = 'live'`).Scan(&n, &ch); err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 12 || n != 12 || ch != 4 {
+		t.Fatalf("got %d ids, %d clips, %d channels", len(ids), n, ch)
+	}
+}
