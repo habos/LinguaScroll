@@ -10,7 +10,8 @@ Any failure here blocks a release or TestFlight build. Rules come from `.claude/
 | Y4 | One playing player; no background or offscreen audio | Device pass: 30 fast swipes, background the app | V6-03, V6-12 |
 | Y5 | Player ≥ 200×200 pt | Layout test on iPhone SE size | V6-09 |
 | Y6 | Referer: `loadHTMLString` with baseURL `https://<bundle id lowercased>` | Unit test on the player config | V6-10 |
-| Y7 | YouTube branding and controls not hidden; channel name links out to YouTube | Device pass | V6-01 |
+| Y7 | YouTube branding stays visible; YouTube's controls may be off only through the official `controls=0` player parameter (Harry's choice, 2026-11-11; revisit before the API compliance audit); channel name links out to YouTube | Device pass | V6-01 |
+| Y18 | Only the current clip plays; the next one is cued, never played muted offscreen to pre-buffer | Code review; device pass step 5 | V6-03 |
 | Y8 | Stored API data refreshed or deleted within 30 days | `sql/compliance.sql` returns 0 rows | V3-04, V3-11 |
 | Y9 | Removed clips keep only IDs: title, description, tags, channel title, category, publish time and stats cleared | `sql/compliance.sql` | V3-04 |
 | Y10 | Only IDs + needed metadata stored; no thumbnails or media stored | Schema review; no image columns; V7 uses public thumbnail URL | V7-06 |
