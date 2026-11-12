@@ -1,0 +1,32 @@
+# XcodeGen spec for the V6 day-one spike (throwaway, not the real app).
+#   brew install xcodegen
+#   cd ios/Spike && xcodegen && open LinguaScrollSpike.xcodeproj
+# Then pick your Personal Team under Signing & Capabilities and run on your iPhone.
+name: LinguaScrollSpike
+options:
+  bundleIdPrefix: com.linguascroll
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Automatic
+targets:
+  LinguaScrollSpike:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    settings:
+      base:
+        # Free provisioning needs a bundle ID nobody else has registered.
+        # If Xcode complains, change it (e.g. com.<yourname>.linguascroll.spike).
+        PRODUCT_BUNDLE_IDENTIFIER: com.linguascroll.spike
+        MARKETING_VERSION: "0.0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: LS Spike
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        TARGETED_DEVICE_FAMILY: "1"
