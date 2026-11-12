@@ -33,6 +33,7 @@ final class FeedViewController: UIViewController, UICollectionViewDelegate {
     private var currentCardID: String?
     private var sheetOpen = false
     private var swiftUIPaused = false
+    private var didInitialScroll = false
 
     init(model: FeedModel, openURL: @escaping (URL) -> Void) {
         self.model = model
@@ -111,6 +112,14 @@ final class FeedViewController: UIViewController, UICollectionViewDelegate {
            collectionView.bounds.height > 0, layout.itemSize != collectionView.bounds.size {
             layout.itemSize = collectionView.bounds.size
             layout.invalidateLayout()
+        }
+        // A Me list opens on the tapped clip, not the first one.
+        if !didInitialScroll, collectionView.bounds.height > 0, dataSource.snapshot().numberOfItems > model.currentIndex {
+            didInitialScroll = true
+            if model.currentIndex > 0 {
+                collectionView.layoutIfNeeded()
+                collectionView.contentOffset = CGPoint(x: 0, y: CGFloat(model.currentIndex) * collectionView.bounds.height)
+            }
         }
     }
 

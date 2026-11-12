@@ -66,7 +66,7 @@ final class FeedCell: UICollectionViewCell {
         placeholder.image = nil
         thumbTask?.cancel()
         let id = card.youtubeID
-        thumbTask = URLSession.shared.dataTask(with: card.thumbnailURL) { [weak self] data, _, _ in
+        thumbTask = Thumbnails.session.dataTask(with: card.thumbnailURL) { [weak self] data, _, _ in
             guard let data, let image = UIImage(data: data) else { return }
             DispatchQueue.main.async {
                 guard let self, self.youtubeID == id else { return }

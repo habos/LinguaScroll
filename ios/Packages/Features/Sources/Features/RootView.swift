@@ -45,12 +45,17 @@ struct BlockedView: View {
 }
 
 struct MainTabs: View {
+    @Environment(AppModel.self) private var app
+
     var body: some View {
-        TabView {
+        @Bindable var app = app
+        TabView(selection: $app.selectedTab) {
             FeedScreen()
                 .tabItem { Label("Feed", systemImage: "play.rectangle.fill") }
-            MePlaceholder()
+                .tag(AppModel.Tab.feed)
+            MeView(deps: app.deps)
                 .tabItem { Label("Me", systemImage: "person.crop.circle") }
+                .tag(AppModel.Tab.me)
         }
         .toolbarBackground(Palette.cinema, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
@@ -77,32 +82,5 @@ struct LanguagePill: View {
         .frame(minHeight: 44)
         .frame(height: 34)
         .background(Palette.accentTint, in: Capsule())
-    }
-}
-
-/// Stand-in until V7: Me with the user's languages.
-struct MePlaceholder: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(model.user?.learning ?? [], id: \.language) { l in
-                        HStack {
-                            Text(model.language(l.language)?.localizedName() ?? l.language)
-                            Spacer()
-                            Text(verbatim: "\(Level.cefr(l.level)) · \(Level.plain(l.level))").foregroundStyle(Palette.textSecondary)
-                        }
-                    }
-                } header: {
-                    Text("Learning")
-                }
-                .listRowBackground(Palette.surface)
-            }
-            .scrollContentBackground(.hidden)
-            .background(Palette.base.ignoresSafeArea())
-            .navigationTitle(Text("Me"))
-        }
     }
 }

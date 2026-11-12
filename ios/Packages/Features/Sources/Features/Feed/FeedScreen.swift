@@ -25,9 +25,9 @@ struct FeedScreen: View {
         }
         .background(Palette.cinema.ignoresSafeArea(edges: .top))
         .foregroundStyle(Palette.textPrimary)
-        .task(id: app.activeLanguage) {
+        .task(id: "\(app.activeLanguage)|\(app.captionsOn)") {
             guard !app.activeLanguage.isEmpty else { return }
-            let model = FeedModel(language: app.activeLanguage, deps: app.deps, captionsOn: app.config.youtubeCaptionsDefault)
+            let model = FeedModel(language: app.activeLanguage, deps: app.deps, captionsOn: app.captionsOn)
             feed = model
             await model.start()
         }

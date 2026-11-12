@@ -183,6 +183,19 @@ final class EventLoggerTests: XCTestCase {
         XCTAssertEqual(sink.sent.map(\.count), [200, 200, 50])
     }
 
+    // Reset my data: queued events of the erased install are dropped, file included.
+    func testDiscardAllDropsPendingEventsAndFile() async {
+        let file = tempFile()
+        defer { try? FileManager.default.removeItem(at: file) }
+        let sink = FakeSink()
+        let logger = BatchingEventLogger(sink: sink, fileURL: file)
+        await logger.append(ClientEvent(type: .share, videoID: "v3", props: [:]))
+        await logger.discardAll()
+        await logger.flush()
+        XCTAssertTrue(sink.sent.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+    }
+
     func testCompletedEncodesAsJSONBoolean() throws {
         let data = try JSONEncoder().encode(ClientEvent(type: .viewEnd, videoID: nil, props: ["completed": .bool(false)]).props)
         XCTAssertEqual(String(data: data, encoding: .utf8), #"{"completed":false}"#)

@@ -59,15 +59,37 @@ public final class FeedModel {
     private var fetching = false
     private var pendingRemoval: (cards: [(Int, VideoCard)], delay: Task<Void, Never>, commit: @Sendable (String) async throws -> Void)?
     private var messageTask: Task<Void, Never>?
+    private var pendingBlockedChannel: String?
 
     static let prefetchWhenRemaining = 5
     static let firstLikeKey = "seen_first_like_hint"
 
+    /// Where pages come from: the ranked feed, or a Me list played from one of its clips.
+    public enum Source: Equatable, Sendable { case feed, library(LibraryKind) }
+    public let source: Source
+
     public init(language: String, deps: AppDependencies, captionsOn: Bool, defaults: UserDefaults = .standard) {
         self.language = language
+        self.source = .feed
         self.deps = deps
         self.captionsOn = captionsOn
         self.defaults = defaults
+    }
+
+    /// Plays a Saved or Liked list from `startIndex`, in its order, paging on with `cursor`.
+    public init(library kind: LibraryKind, cards: [VideoCard], cursor: String?, startIndex: Int,
+                deps: AppDependencies, captionsOn: Bool, defaults: UserDefaults = .standard) {
+        let start = min(max(0, startIndex), max(0, cards.count - 1))
+        self.language = cards[safe: start]?.language ?? ""
+        self.source = .library(kind)
+        self.deps = deps
+        self.captionsOn = captionsOn
+        self.defaults = defaults
+        self.cards = cards
+        self.cursor = cursor
+        self.hasMore = cursor != nil
+        self.currentIndex = start
+        self.state = cards.isEmpty ? .caughtUp : .ready
     }
 
     public var current: VideoCard? { cards.indices.contains(currentIndex) ? cards[currentIndex] : nil }
@@ -95,7 +117,13 @@ public final class FeedModel {
         defer { fetching = false }
         let feed = deps.feed, language = language, cursor = cursor
         do {
-            let page = try await deps.session.authorized { try await feed.feed(language: language, cursor: cursor, token: $0) }
+            let page: FeedPage
+            switch source {
+            case .feed:
+                page = try await deps.session.authorized { try await feed.feed(language: language, cursor: cursor, token: $0) }
+            case .library(let kind):
+                page = try await deps.session.authorized { try await feed.library(kind, cursor: cursor, token: $0) }
+            }
             let known = Set(cards.map(\.id))
             let fresh = page.items.filter { !known.contains($0.id) }
             if !fresh.isEmpty {
@@ -205,8 +233,9 @@ public final class FeedModel {
     /// Removes this channel's loaded clips (current and later); server call after the undo window.
     public func blockChannel(_ card: VideoCard) {
         let feed = deps.feed, channel = card.channelID, from = currentIndex
+        HiddenChannels(defaults: defaults).add(channel, title: card.channelTitle)
         var index = -1
-        remove({ c in index += 1; return c.channelID == channel && index >= from }) { token in
+        remove({ c in index += 1; return c.channelID == channel && index >= from }, blockedChannel: channel) { token in
             try await feed.setChannelBlocked(true, channelID: channel, token: token)
         }
     }
@@ -222,6 +251,8 @@ public final class FeedModel {
         guard let pending = pendingRemoval else { return }
         pending.delay.cancel()
         pendingRemoval = nil
+        if let channel = pendingBlockedChannel { HiddenChannels(defaults: defaults).remove(channel) }
+        pendingBlockedChannel = nil
         for (i, card) in pending.cards.sorted(by: { $0.0 < $1.0 }) {
             cards.insert(card, at: min(i, cards.count))
         }
@@ -230,8 +261,10 @@ public final class FeedModel {
         if let first = pending.cards.map(\.0).min() { onScrollTo?(first) }
     }
 
-    private func remove(_ match: (VideoCard) -> Bool, commit: @escaping @Sendable (String) async throws -> Void) {
+    private func remove(_ match: (VideoCard) -> Bool, blockedChannel: String? = nil,
+                        commit: @escaping @Sendable (String) async throws -> Void) {
         flushPendingRemoval()
+        pendingBlockedChannel = blockedChannel
         let removed = removeNow(match)
         guard !removed.isEmpty else { return }
         let session = deps.session
@@ -239,6 +272,7 @@ public final class FeedModel {
             try? await Task.sleep(for: .seconds(2.5))
             guard !Task.isCancelled else { return }
             self?.pendingRemoval = nil
+            self?.pendingBlockedChannel = nil
             _ = try? await session.authorized { try await commit($0) }
         }
         pendingRemoval = (removed, task, commit)
@@ -263,6 +297,7 @@ public final class FeedModel {
 
     /// A second hide while one is pending sends the first one's call straight away.
     private func flushPendingRemoval() {
+        pendingBlockedChannel = nil
         guard let pending = pendingRemoval else { return }
         pendingRemoval = nil
         pending.delay.cancel()

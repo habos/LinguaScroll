@@ -50,7 +50,8 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
         URL(string: "https://\((bundleID ?? "app.linguascroll.ios").lowercased())")!
     }
 
-    /// `captionsLanguage`: YouTube's own captions in that language (`cc_load_policy=1`), or nil for off.
+    /// `captionsLanguage`: YouTube's own captions in that language (`cc_load_policy=1`), or nil for
+    /// off, which leaves `cc_load_policy` out entirely (QA V7-07).
     /// All clips in one feed share a language, so this is fixed per player.
     /// `controls`: YouTube's progress bar and title (`controls=1`); off shows only the video.
     init(name: String, captionsLanguage: String?, controls: Bool = false) {
@@ -133,7 +134,7 @@ public final class YouTubePlayer: NSObject, WKScriptMessageHandler {
     // MARK: Page
 
     static func html(origin: String, captionsLanguage: String?, controls: Bool) -> String {
-        let captionVars = captionsLanguage.map { ", cc_load_policy: 1, cc_lang_pref: '\($0)'" } ?? ", cc_load_policy: 0"
+        let captionVars = captionsLanguage.map { ", cc_load_policy: 1, cc_lang_pref: '\($0)'" } ?? ""
         return """
         <!doctype html>
         <html><head>

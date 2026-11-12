@@ -117,4 +117,10 @@ public protocol UserAPI: Sendable {
     func me(token: String) async throws -> UserProfile
     /// `PUT /v1/me/languages/{code}`: add a language, change its level, or make it active.
     func putLanguage(_ code: String, level: Int, active: Bool?, token: String) async throws -> UserProfile
+    /// `DELETE /v1/me/languages/{code}`; 422 for the last language.
+    func removeLanguage(_ code: String, token: String) async throws -> UserProfile
+    /// `PATCH /v1/me` with `native_language`.
+    func setNativeLanguage(_ code: String, token: String) async throws -> UserProfile
+    /// `DELETE /v1/me`: erase this device's data on the server.
+    func deleteMe(token: String) async throws
 }

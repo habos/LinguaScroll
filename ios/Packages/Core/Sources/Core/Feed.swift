@@ -46,6 +46,11 @@ public struct FeedPage: Sendable, Equatable {
     }
 }
 
+/// The two lists on the Me screen.
+public enum LibraryKind: String, Sendable, CaseIterable, Hashable {
+    case saved, liked
+}
+
 public enum ReportReason: String, Sendable, CaseIterable {
     case notThisLanguage = "not_this_language"
     case inappropriate
@@ -63,4 +68,6 @@ public protocol FeedAPI: Sendable {
     func hide(videoID: String, token: String) async throws
     func setChannelBlocked(_ blocked: Bool, channelID: String, token: String) async throws
     func report(videoID: String, reason: ReportReason, token: String) async throws
+    /// `GET /v1/me/saves` or `/v1/me/likes`: newest first, same paging as the feed.
+    func library(_ kind: LibraryKind, cursor: String?, token: String) async throws -> FeedPage
 }

@@ -222,7 +222,7 @@ private struct NativeStep: View {
 
 // MARK: - Step 4
 
-private struct LevelStep: View {
+struct LevelStep: View {
     @Environment(AppModel.self) private var model
     let language: String?
     let registering: Int?

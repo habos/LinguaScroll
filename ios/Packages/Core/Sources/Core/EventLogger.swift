@@ -101,6 +101,12 @@ public actor BatchingEventLogger: EventLogger {
 
     public var pendingEvents: [ClientEvent] { pending }
 
+    /// Reset my data: events from the erased install must not be sent under the new one.
+    public func discardAll() {
+        pending = []
+        persist()
+    }
+
     public func start(interval: Duration = .seconds(10)) {
         timer?.cancel()
         timer = Task { [weak self] in

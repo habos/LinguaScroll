@@ -75,7 +75,51 @@ struct LiveAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
         }
     }
 
+    func removeLanguage(_ code: String, token: String) async throws -> UserProfile {
+        switch try await transport({ try await client(token).deleteMyLanguage(path: .init(code: code)) }) {
+        case .ok(let ok): return Self.user(try ok.body.json)
+        case .unprocessableContent(let r): throw APIError.server(status: 422, code: (try? r.body.json)?.error.code ?? "unprocessable")
+        case .default(let status, let r): throw Self.error(status, try? r.body.json)
+        }
+    }
+
+    func setNativeLanguage(_ code: String, token: String) async throws -> UserProfile {
+        switch try await transport({ try await client(token).updateMe(body: .json(.init(nativeLanguage: code))) }) {
+        case .ok(let ok): return Self.user(try ok.body.json)
+        case .default(let status, let r): throw Self.error(status, try? r.body.json)
+        }
+    }
+
+    func deleteMe(token: String) async throws {
+        switch try await transport({ try await client(token).deleteMe() }) {
+        case .noContent: return
+        case .default(let status, let r): throw Self.error(status, try? r.body.json)
+        }
+    }
+
     // MARK: Feed and clip actions
+
+    func library(_ kind: LibraryKind, cursor: String?, token: String) async throws -> FeedPage {
+        let c = client(token)
+        switch kind {
+        case .saved:
+            switch try await transport({ try await c.listMySaves(query: .init(cursor: cursor)) }) {
+            case .ok(let ok):
+                let page = try ok.body.json
+                return FeedPage(items: page.items.map(Self.card), nextCursor: page.nextCursor)
+            case .default(let status, let r):
+                throw Self.error(status, try? r.body.json)
+            }
+        case .liked:
+            switch try await transport({ try await c.listMyLikes(query: .init(cursor: cursor)) }) {
+            case .ok(let ok):
+                let page = try ok.body.json
+                return FeedPage(items: page.items.map(Self.card), nextCursor: page.nextCursor)
+            case .default(let status, let r):
+                throw Self.error(status, try? r.body.json)
+            }
+        }
+    }
 
     func feed(language: String, cursor: String?, token: String) async throws -> FeedPage {
         switch try await transport({ try await client(token).getFeed(query: .init(language: language, cursor: cursor)) }) {
