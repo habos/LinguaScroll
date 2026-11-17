@@ -80,6 +80,7 @@ jobs:
 
   ios-app:
     runs-on: macos-15
+    timeout-minutes: 30 # a stuck build or simulator fails the job instead of hanging (normal run: 6-8 min)
     steps:
       - uses: actions/checkout@v4
       - name: Generate the app project
@@ -88,8 +89,21 @@ jobs:
       - name: Build and test the app on the smallest iPhone (QA rows V6-05, V6-08, V6-09, V6-10)
         working-directory: ios/App
         shell: bash # -eo pipefail, so a failed build or test fails the step
+        timeout-minutes: 25
+        # The full log goes to a file (uploaded below); the console shows progress lines as they
+        # happen (--line-buffered: without it grep holds everything until xcodebuild exits, so a
+        # slow build looks like a hang). Each test gets 60 s before XCTest fails it.
         run: >-
           xcodebuild test -project LinguaScroll.xcodeproj -scheme LinguaScroll
           -destination 'platform=iOS Simulator,name=iPhone SE (3rd generation)' -skipPackagePluginValidation
+          -test-timeouts-enabled YES -default-test-execution-time-allowance 60
           CODE_SIGNING_ALLOWED=NO 2>&1
-          | grep -E '(error|warning):|\*\* (BUILD|TEST)|Test Case|Executed'
+          | tee xcodebuild.log
+          | grep --line-buffered -E '(error|warning):|\*\* (BUILD|TEST)|Test Case|Executed|Resolve Package|Compiling|Linking|Testing started'
+      - name: Upload the full xcodebuild log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-xcodebuild-log
+          path: ios/App/xcodebuild.log
+          if-no-files-found: ignore
