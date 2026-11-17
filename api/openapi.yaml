@@ -278,6 +278,15 @@ paths:
           description: Hidden for this device
         default:
           $ref: "#/components/responses/Error"
+    delete:
+      tags: [videos]
+      operationId: unhideVideo
+      summary: Undo a hide (idempotent)
+      responses:
+        "204":
+          description: Not hidden any more for this device
+        default:
+          $ref: "#/components/responses/Error"
   /v1/videos/{id}/report:
     parameters:
       - $ref: "#/components/parameters/VideoID"
@@ -294,6 +303,20 @@ paths:
       responses:
         "204":
           description: Reported
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/channel-blocks:
+    get:
+      tags: [videos]
+      operationId: listChannelBlocks
+      summary: Channels this device blocked, newest first
+      responses:
+        "200":
+          description: All blocked channels (no paging in v0)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelBlockList"
         default:
           $ref: "#/components/responses/Error"
   /v1/channel-blocks/{channel_id}:
@@ -327,6 +350,12 @@ paths:
       tags: [events]
       operationId: postEvents
       summary: Batch of client events (max 200, deduplicated by id)
+      description: |
+        Events are deduplicated by (id, at), so a retry must resend the same
+        event unchanged. Events whose `at` is more than 7 days old or more
+        than 1 hour ahead, impressions and view_ends without video_id, and
+        view_ends without a numeric watched_ms and boolean completed are
+        dropped and counted in `dropped`. More than 200 events is a 400.
       requestBody:
         required: true
         content:
@@ -591,6 +620,28 @@ components:
         next_cursor:
           type: string
           nullable: true
+    ChannelBlock:
+      type: object
+      required: [channel_id, channel_title, blocked_at]
+      properties:
+        channel_id:
+          type: string
+          description: YouTube channel ID
+        channel_title:
+          type: string
+          nullable: true
+          description: From a live clip of the channel; null when none is left
+        blocked_at:
+          type: string
+          format: date-time
+    ChannelBlockList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChannelBlock"
     ReportRequest:
       type: object
       required: [reason]
@@ -633,9 +684,12 @@ components:
             $ref: "#/components/schemas/Event"
     EventBatchResult:
       type: object
-      required: [accepted, duplicates]
+      required: [accepted, duplicates, dropped]
       properties:
         accepted:
           type: integer
         duplicates:
           type: integer
+        dropped:
+          type: integer
+          description: Invalid events that were not stored (see postEvents)

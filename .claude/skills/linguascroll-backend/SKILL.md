@@ -48,7 +48,13 @@ River jobs: `youtube_search` (spread through the day), `youtube_refresh` (daily)
 
 ## Feed and events (V4)
 
-Ranking lives in the linguascroll-feed-ranking skill. Likes/saves/blocks are idempotent PUT/DELETE, hide PUT only, each also writes an event. Events: max 200 per batch, deduped by client ID, a view counts at >= 2 s. A 5-minute job rolls events into `video_stats` and `video_level_stats`. Reports from `reports.hide_after` (3) distinct devices set a clip to `removed`.
+Ranking lives in the linguascroll-feed-ranking skill. Everything else is `internal/engagement` (handlers in `server/engagement.go`):
+- Likes/saves/hides/channel blocks are idempotent PUT/DELETE (DELETE /hide added for the feed's Undo). Adding needs a live clip (404 otherwise); removing never fails. Each real state change writes a server event (like, unlike, save, unsave, hide, unhide, channel_block, channel_unblock, report).
+- `GET /v1/channel-blocks`: newest first, `channel_title` from a live clip of the channel, null when none is left.
+- Reports: one per device and clip; `not_this_language` sets `videos.language_recheck`; at `reports.hide_after` (3) distinct devices the clip is removed with `catalog.ClearYouTubeData` and `hold_reason = 'reports'`.
+- `POST /v1/events`: max 200 (400 `too_many_events`), deduped by (id, at), so retries must resend unchanged. Dropped (counted in `dropped`): `at` older than 7 days or over 1 h ahead, impression/view_end without video_id, view_end without numeric `watched_ms` and boolean `completed`.
+- `events_rollup` (every 5 min) reads events by `received_at` (watermark in `rollup_state`, 1 min lag) and only adds to counters in `video_stats` (feed_stats owns the other columns); likes/hides are recounted from their tables for clips that changed. A view is >= 2 s watched. `video_level_stats` uses the viewer's level for the clip's language at rollup time.
+- `session_cleanup` (daily) deletes expired sessions.
 
 ## Adding a language (data, not code)
 

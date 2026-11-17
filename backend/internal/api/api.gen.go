@@ -81,6 +81,22 @@ type AppConfig struct {
 	YoutubeCaptionsDefault bool `json:"youtube_captions_default"`
 }
 
+// ChannelBlock defines model for ChannelBlock.
+type ChannelBlock struct {
+	BlockedAt time.Time `json:"blocked_at"`
+
+	// ChannelId YouTube channel ID
+	ChannelId string `json:"channel_id"`
+
+	// ChannelTitle From a live clip of the channel; null when none is left
+	ChannelTitle *string `json:"channel_title"`
+}
+
+// ChannelBlockList defines model for ChannelBlockList.
+type ChannelBlockList struct {
+	Items []ChannelBlock `json:"items"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error ErrorBody `json:"error"`
@@ -117,7 +133,10 @@ type EventBatch struct {
 
 // EventBatchResult defines model for EventBatchResult.
 type EventBatchResult struct {
-	Accepted   int `json:"accepted"`
+	Accepted int `json:"accepted"`
+
+	// Dropped Invalid events that were not stored (see postEvents)
+	Dropped    int `json:"dropped"`
 	Duplicates int `json:"duplicates"`
 }
 
@@ -294,6 +313,9 @@ type ServerInterface interface {
 	// Liveness and database check
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// Channels this device blocked, newest first
+	// (GET /v1/channel-blocks)
+	ListChannelBlocks(w http.ResponseWriter, r *http.Request)
 	// Unblock a channel
 	// (DELETE /v1/channel-blocks/{channel_id})
 	UnblockChannel(w http.ResponseWriter, r *http.Request, channelId string)
@@ -336,6 +358,9 @@ type ServerInterface interface {
 	// Register an install (or re-register the same install)
 	// (POST /v1/sessions/anonymous)
 	CreateAnonymousSession(w http.ResponseWriter, r *http.Request)
+	// Undo a hide (idempotent)
+	// (DELETE /v1/videos/{id}/hide)
+	UnhideVideo(w http.ResponseWriter, r *http.Request, id VideoID)
 	// Hide a clip from this device forever
 	// (PUT /v1/videos/{id}/hide)
 	HideVideo(w http.ResponseWriter, r *http.Request, id VideoID)
@@ -370,6 +395,26 @@ func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListChannelBlocks operation middleware
+func (siw *ServerInterfaceWrapper) ListChannelBlocks(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListChannelBlocks(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -755,6 +800,37 @@ func (siw *ServerInterfaceWrapper) CreateAnonymousSession(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// UnhideVideo operation middleware
+func (siw *ServerInterfaceWrapper) UnhideVideo(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id VideoID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnhideVideo(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // HideVideo operation middleware
 func (siw *ServerInterfaceWrapper) HideVideo(w http.ResponseWriter, r *http.Request) {
 
@@ -1062,6 +1138,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc("GET "+options.BaseURL+"/healthz", wrapper.GetHealthz)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/channel-blocks", wrapper.ListChannelBlocks)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/channel-blocks/{channel_id}", wrapper.UnblockChannel)
 	m.HandleFunc("PUT "+options.BaseURL+"/v1/channel-blocks/{channel_id}", wrapper.BlockChannel)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/config", wrapper.GetConfig)
@@ -1076,6 +1153,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me/likes", wrapper.ListMyLikes)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me/saves", wrapper.ListMySaves)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/sessions/anonymous", wrapper.CreateAnonymousSession)
+	m.HandleFunc("DELETE "+options.BaseURL+"/v1/videos/{id}/hide", wrapper.UnhideVideo)
 	m.HandleFunc("PUT "+options.BaseURL+"/v1/videos/{id}/hide", wrapper.HideVideo)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/videos/{id}/like", wrapper.UnlikeVideo)
 	m.HandleFunc("PUT "+options.BaseURL+"/v1/videos/{id}/like", wrapper.LikeVideo)
@@ -1111,6 +1189,34 @@ func (response GetHealthz503JSONResponse) VisitGetHealthzResponse(w http.Respons
 	w.WriteHeader(503)
 
 	return json.NewEncoder(w).Encode(response)
+}
+
+type ListChannelBlocksRequestObject struct {
+}
+
+type ListChannelBlocksResponseObject interface {
+	VisitListChannelBlocksResponse(w http.ResponseWriter) error
+}
+
+type ListChannelBlocks200JSONResponse ChannelBlockList
+
+func (response ListChannelBlocks200JSONResponse) VisitListChannelBlocksResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListChannelBlocksdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListChannelBlocksdefaultJSONResponse) VisitListChannelBlocksResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type UnblockChannelRequestObject struct {
@@ -1540,6 +1646,34 @@ func (response CreateAnonymousSessiondefaultJSONResponse) VisitCreateAnonymousSe
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type UnhideVideoRequestObject struct {
+	Id VideoID `json:"id"`
+}
+
+type UnhideVideoResponseObject interface {
+	VisitUnhideVideoResponse(w http.ResponseWriter) error
+}
+
+type UnhideVideo204Response struct {
+}
+
+func (response UnhideVideo204Response) VisitUnhideVideoResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnhideVideodefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UnhideVideodefaultJSONResponse) VisitUnhideVideoResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type HideVideoRequestObject struct {
 	Id VideoID `json:"id"`
 }
@@ -1714,6 +1848,9 @@ type StrictServerInterface interface {
 	// Liveness and database check
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
+	// Channels this device blocked, newest first
+	// (GET /v1/channel-blocks)
+	ListChannelBlocks(ctx context.Context, request ListChannelBlocksRequestObject) (ListChannelBlocksResponseObject, error)
 	// Unblock a channel
 	// (DELETE /v1/channel-blocks/{channel_id})
 	UnblockChannel(ctx context.Context, request UnblockChannelRequestObject) (UnblockChannelResponseObject, error)
@@ -1756,6 +1893,9 @@ type StrictServerInterface interface {
 	// Register an install (or re-register the same install)
 	// (POST /v1/sessions/anonymous)
 	CreateAnonymousSession(ctx context.Context, request CreateAnonymousSessionRequestObject) (CreateAnonymousSessionResponseObject, error)
+	// Undo a hide (idempotent)
+	// (DELETE /v1/videos/{id}/hide)
+	UnhideVideo(ctx context.Context, request UnhideVideoRequestObject) (UnhideVideoResponseObject, error)
 	// Hide a clip from this device forever
 	// (PUT /v1/videos/{id}/hide)
 	HideVideo(ctx context.Context, request HideVideoRequestObject) (HideVideoResponseObject, error)
@@ -1822,6 +1962,30 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthzResponseObject); ok {
 		if err := validResponse.VisitGetHealthzResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListChannelBlocks operation middleware
+func (sh *strictHandler) ListChannelBlocks(w http.ResponseWriter, r *http.Request) {
+	var request ListChannelBlocksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListChannelBlocks(ctx, request.(ListChannelBlocksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListChannelBlocks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListChannelBlocksResponseObject); ok {
+		if err := validResponse.VisitListChannelBlocksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2207,6 +2371,32 @@ func (sh *strictHandler) CreateAnonymousSession(w http.ResponseWriter, r *http.R
 	}
 }
 
+// UnhideVideo operation middleware
+func (sh *strictHandler) UnhideVideo(w http.ResponseWriter, r *http.Request, id VideoID) {
+	var request UnhideVideoRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnhideVideo(ctx, request.(UnhideVideoRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnhideVideo")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnhideVideoResponseObject); ok {
+		if err := validResponse.VisitUnhideVideoResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // HideVideo operation middleware
 func (sh *strictHandler) HideVideo(w http.ResponseWriter, r *http.Request, id VideoID) {
 	var request HideVideoRequestObject
@@ -2373,52 +2563,58 @@ func (sh *strictHandler) SaveVideo(w http.ResponseWriter, r *http.Request, id Vi
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AAA=",
+	"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",
+	"njkAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

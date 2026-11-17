@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/habos/linguascroll/backend/internal/catalog"
+	"github.com/habos/linguascroll/backend/internal/engagement"
 	"github.com/habos/linguascroll/backend/internal/feed"
 	"github.com/habos/linguascroll/backend/internal/jobs"
 	"github.com/habos/linguascroll/backend/internal/langdetect"
@@ -56,7 +57,7 @@ func main() {
 	} else {
 		cat.YT, cat.Detect = &youtube.HTTPClient{Key: cfg.YouTubeAPIKey}, &langdetect.Lingua{}
 	}
-	periodic := catalog.Register(workers, cat)
+	periodic := append(catalog.Register(workers, cat), engagement.Register(workers, pool)...)
 
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger:  log,
