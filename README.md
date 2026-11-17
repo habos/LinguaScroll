@@ -9,17 +9,23 @@ A vertical swipe feed of short videos in the language you're learning, so learni
 
 ## Run it locally
 
-Needs Go (see `backend/go.mod`), Docker and Node (for the OpenAPI linter). No API keys.
+No API keys needed. One-time setup on a Mac:
+
+1. Install Go and Node: `brew install go node` (Go version: see `backend/go.mod`; Go downloads a newer toolchain itself if needed).
+2. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and open it. It must be running whenever you use `make dev`, `make db` or `make test`.
+3. Optional: `cp .env.example .env` to change settings. If you made a `.env` before 2026-11-17, update its database URLs to port 54320.
+
+The database runs in Docker on **port 54320** (not 5432), so a Postgres you already have from Homebrew or Postgres.app doesn't get in the way. `make check` says what's missing.
 
 ```sh
-make dev     # Postgres in Docker, migrations, seed, then API on :8080 and the worker
+make dev     # checks Go and Docker, Postgres in Docker, migrations, seed, then API on :8080 and the worker
 make test    # Go tests (each test gets its own throwaway database)
 make lint    # go vet, gofmt, OpenAPI lint
 make gen     # regenerate the Go server interface and Swift client spec after editing api/openapi.yaml
 make help    # everything else
 ```
 
-Try it: `curl localhost:8080/healthz`. Every other route answers 401 without a token, then 501 until its module (V2 to V4) is built.
+Try it: `curl localhost:8080/healthz`. Every other route except `/v1/config`, `/v1/languages` and `POST /v1/sessions/anonymous` needs a token from that last one.
 
 The seed loads 15 languages, config defaults, starter YouTube search terms and 30 placeholder clips. The placeholder clips have fake YouTube IDs; real clips arrive with the V3 catalog job.
 

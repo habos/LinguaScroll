@@ -7,7 +7,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: linguascroll
     ports:
-      - "5432:5432"
+      # 54320, not 5432, so a Postgres already installed on the Mac
+      # (Homebrew, Postgres.app) can keep 5432.
+      - "127.0.0.1:54320:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
