@@ -57,9 +57,9 @@ public final class FeedModel {
     private var cursor: String?
     private var hasMore = true
     private var fetching = false
-    private var pendingRemoval: (cards: [(Int, VideoCard)], delay: Task<Void, Never>, commit: @Sendable (String) async throws -> Void)?
+    /// The last hide or block, for Undo: removed cards, the server call, and how to reverse it.
+    private var lastRemoval: (cards: [(Int, VideoCard)], sent: Task<Void, Never>, revert: @Sendable (String) async throws -> Void)?
     private var messageTask: Task<Void, Never>?
-    private var pendingBlockedChannel: String?
 
     static let prefetchWhenRemaining = 5
     static let firstLikeKey = "seen_first_like_hint"
@@ -200,6 +200,8 @@ public final class FeedModel {
         Task {
             do {
                 try await deps.session.authorized { try await feed.setLiked(new, videoID: id, token: $0) }
+            } catch APIError.server(404, _) {
+                removeNow { $0.id == id } // the clip was removed from the catalog: already gone, no error
             } catch {
                 if let j = cards.firstIndex(where: { $0.id == id }) { cards[j].liked = !new }
                 show(.actionFailed)
@@ -215,6 +217,8 @@ public final class FeedModel {
         Task {
             do {
                 try await deps.session.authorized { try await feed.setSaved(new, videoID: id, token: $0) }
+            } catch APIError.server(404, _) {
+                removeNow { $0.id == id } // the clip was removed from the catalog: already gone, no error
             } catch {
                 if let j = cards.firstIndex(where: { $0.id == id }) { cards[j].saved = !new }
                 show(.actionFailed)
@@ -224,20 +228,22 @@ public final class FeedModel {
 
     // MARK: Hide, block, report
 
-    /// Removes the clip now; the server call waits for the 2.5 s undo window.
+    /// Removes the clip and hides it on the server now; Undo (while the bar shows "Hidden")
+    /// calls `DELETE /v1/videos/{id}/hide`.
     public func hide(_ card: VideoCard) {
         let feed = deps.feed, id = card.id
-        remove({ $0.id == id }) { token in try await feed.hide(videoID: id, token: token) }
+        remove({ $0.id == id },
+               commit: { try await feed.hide(videoID: id, token: $0) },
+               revert: { try await feed.unhide(videoID: id, token: $0) })
     }
 
-    /// Removes this channel's loaded clips (current and later); server call after the undo window.
+    /// Removes this channel's loaded clips (current and later) and blocks it now; Undo unblocks.
     public func blockChannel(_ card: VideoCard) {
         let feed = deps.feed, channel = card.channelID, from = currentIndex
-        HiddenChannels(defaults: defaults).add(channel, title: card.channelTitle)
         var index = -1
-        remove({ c in index += 1; return c.channelID == channel && index >= from }, blockedChannel: channel) { token in
-            try await feed.setChannelBlocked(true, channelID: channel, token: token)
-        }
+        remove({ c in index += 1; return c.channelID == channel && index >= from },
+               commit: { try await feed.setChannelBlocked(true, channelID: channel, token: $0) },
+               revert: { try await feed.setChannelBlocked(false, channelID: channel, token: $0) })
     }
 
     /// Reports and hides for this device (no undo for reports).
@@ -248,34 +254,29 @@ public final class FeedModel {
     }
 
     public func undo() {
-        guard let pending = pendingRemoval else { return }
-        pending.delay.cancel()
-        pendingRemoval = nil
-        if let channel = pendingBlockedChannel { HiddenChannels(defaults: defaults).remove(channel) }
-        pendingBlockedChannel = nil
-        for (i, card) in pending.cards.sorted(by: { $0.0 < $1.0 }) {
+        guard let last = lastRemoval else { return }
+        lastRemoval = nil
+        for (i, card) in last.cards.sorted(by: { $0.0 < $1.0 }) {
             cards.insert(card, at: min(i, cards.count))
         }
         barMessage = nil
         onCardsChanged?()
-        if let first = pending.cards.map(\.0).min() { onScrollTo?(first) }
+        if let first = last.cards.map(\.0).min() { onScrollTo?(first) }
+        let session = deps.session, revert = last.revert, sent = last.sent
+        Task {
+            await sent.value // the hide must reach the server before the un-hide
+            _ = try? await session.authorized { try await revert($0) }
+        }
     }
 
-    private func remove(_ match: (VideoCard) -> Bool, blockedChannel: String? = nil,
-                        commit: @escaping @Sendable (String) async throws -> Void) {
-        flushPendingRemoval()
-        pendingBlockedChannel = blockedChannel
+    private func remove(_ match: (VideoCard) -> Bool,
+                        commit: @escaping @Sendable (String) async throws -> Void,
+                        revert: @escaping @Sendable (String) async throws -> Void) {
         let removed = removeNow(match)
         guard !removed.isEmpty else { return }
         let session = deps.session
-        let task = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(2.5))
-            guard !Task.isCancelled else { return }
-            self?.pendingRemoval = nil
-            self?.pendingBlockedChannel = nil
-            _ = try? await session.authorized { try await commit($0) }
-        }
-        pendingRemoval = (removed, task, commit)
+        let sent = Task { _ = try? await session.authorized { try await commit($0) } }
+        lastRemoval = (removed, sent, revert)
         show(.hidden)
     }
 
@@ -295,16 +296,6 @@ public final class FeedModel {
         return removed
     }
 
-    /// A second hide while one is pending sends the first one's call straight away.
-    private func flushPendingRemoval() {
-        pendingBlockedChannel = nil
-        guard let pending = pendingRemoval else { return }
-        pendingRemoval = nil
-        pending.delay.cancel()
-        let session = deps.session, commit = pending.commit
-        Task { _ = try? await session.authorized { try await commit($0) } }
-    }
-
     // MARK: Bar messages
 
     private func show(_ kind: BarMessage.Kind) {
@@ -315,6 +306,7 @@ public final class FeedModel {
             try? await Task.sleep(for: .seconds(2.5))
             guard !Task.isCancelled, barMessage == message else { return }
             barMessage = nil
+            if kind == .hidden { lastRemoval = nil } // the Undo window is the "Hidden" message
         }
     }
 }

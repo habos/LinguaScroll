@@ -168,6 +168,22 @@ struct LiveAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
         }
     }
 
+    func unhide(videoID: String, token: String) async throws {
+        switch try await transport({ try await client(token).unhideVideo(path: .init(id: videoID)) }) {
+        case .noContent: return
+        case .default(let status, let r): throw Self.error(status, try? r.body.json)
+        }
+    }
+
+    func channelBlocks(token: String) async throws -> [BlockedChannel] {
+        switch try await transport({ try await client(token).listChannelBlocks() }) {
+        case .ok(let ok):
+            return try ok.body.json.items.map { BlockedChannel(id: $0.channelId, title: $0.channelTitle, blockedAt: $0.blockedAt) }
+        case .default(let status, let r):
+            throw Self.error(status, try? r.body.json)
+        }
+    }
+
     func setChannelBlocked(_ blocked: Bool, channelID: String, token: String) async throws {
         let c = client(token)
         if blocked {

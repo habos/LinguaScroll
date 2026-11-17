@@ -46,6 +46,19 @@ public struct FeedPage: Sendable, Equatable {
     }
 }
 
+/// A channel this device hid. `title` is nil when no clip of it is left in the catalog.
+public struct BlockedChannel: Sendable, Equatable, Identifiable {
+    public var id: String   // YouTube channel ID
+    public var title: String?
+    public var blockedAt: Date
+
+    public init(id: String, title: String?, blockedAt: Date) {
+        self.id = id
+        self.title = title
+        self.blockedAt = blockedAt
+    }
+}
+
 /// The two lists on the Me screen.
 public enum LibraryKind: String, Sendable, CaseIterable, Hashable {
     case saved, liked
@@ -66,6 +79,10 @@ public protocol FeedAPI: Sendable {
     func setLiked(_ liked: Bool, videoID: String, token: String) async throws
     func setSaved(_ saved: Bool, videoID: String, token: String) async throws
     func hide(videoID: String, token: String) async throws
+    /// `DELETE /v1/videos/{id}/hide` (feed Undo); idempotent.
+    func unhide(videoID: String, token: String) async throws
+    /// `GET /v1/channel-blocks`: this device's blocked channels, newest first.
+    func channelBlocks(token: String) async throws -> [BlockedChannel]
     func setChannelBlocked(_ blocked: Bool, channelID: String, token: String) async throws
     func report(videoID: String, reason: ReportReason, token: String) async throws
     /// `GET /v1/me/saves` or `/v1/me/likes`: newest first, same paging as the feed.
