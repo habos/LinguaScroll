@@ -31,3 +31,4 @@ Log the result in `qa/runs/<date>-<what>.md` with the commit SHA, device model, 
 | 15 | Tap the channel name | Opens the channel in the YouTube app or Safari | Y7 |
 | 16 | View debugger: inspect the player cell | Nothing of ours inside the player frame | V6-05, Y1 |
 | 17 | Onboard a fresh device on a tiny catalog (seed data, level 1) and swipe until clips run out; then go offline and relaunch | "You've seen every {language} clip we have for now" with Change level / Switch language (and "Rewatch saved clips" if Saved isn't empty); offline shows "You're offline" with Try again and recovers on reconnect; returning to the tab fetches a fresh page | V6-15 |
+| 18 | Flip the mute switch on, play a clip | Sound still plays (audio session `.playback`) | V6-16 |
