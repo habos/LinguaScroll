@@ -9,11 +9,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/habos/linguascroll/backend/internal/catalog"
 	"github.com/habos/linguascroll/backend/internal/feed"
 	"github.com/habos/linguascroll/backend/internal/jobs"
+	"github.com/habos/linguascroll/backend/internal/langdetect"
 	"github.com/habos/linguascroll/backend/internal/platform/config"
 	"github.com/habos/linguascroll/backend/internal/platform/db"
 	"github.com/habos/linguascroll/backend/internal/platform/logx"
+	"github.com/habos/linguascroll/backend/internal/youtube"
+	"github.com/habos/linguascroll/backend/internal/youtube/fake"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
@@ -39,18 +43,32 @@ func main() {
 	river.AddWorker(workers, &jobs.EventPartitionsWorker{DB: pool})
 	river.AddWorker(workers, &feed.StatsWorker{DB: pool})
 
+	cat := &catalog.Service{DB: pool, Log: log}
+	if cfg.FakeVendors {
+		// No network: a canned catalog per source, and the clips already
+		// stored, so `make dev` grows a feed and refresh keeps it.
+		yt := fake.New()
+		if err := catalog.FillDevFake(ctx, pool, yt); err != nil {
+			log.Error("fill dev fake", "err", err)
+			os.Exit(1)
+		}
+		cat.YT, cat.Detect = yt, langdetect.DefaultFake
+	} else {
+		cat.YT, cat.Detect = &youtube.HTTPClient{Key: cfg.YouTubeAPIKey}, &langdetect.Lingua{}
+	}
+	periodic := catalog.Register(workers, cat)
+
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger:  log,
 		Queues:  map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 4}},
 		Workers: workers,
-		PeriodicJobs: []*river.PeriodicJob{
+		PeriodicJobs: append(periodic,
 			river.NewPeriodicJob(river.PeriodicInterval(24*time.Hour),
 				func() (river.JobArgs, *river.InsertOpts) { return jobs.EventPartitionsArgs{}, nil },
 				&river.PeriodicJobOpts{RunOnStart: true}),
 			river.NewPeriodicJob(river.PeriodicInterval(feed.StatsInterval),
 				func() (river.JobArgs, *river.InsertOpts) { return feed.StatsArgs{}, nil },
-				&river.PeriodicJobOpts{RunOnStart: true}),
-		},
+				&river.PeriodicJobOpts{RunOnStart: true})),
 	})
 	if err != nil {
 		log.Error("river client", "err", err)

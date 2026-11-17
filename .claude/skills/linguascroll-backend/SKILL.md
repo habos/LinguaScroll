@@ -41,6 +41,10 @@ River jobs: `youtube_search` (spread through the day), `youtube_refresh` (daily)
 - Language: audio tag match > seed channel > text detection >= `youtube.min_language_confidence` > drop. Record the source.
 - Level: source hint > `youtube.level_keywords` > null; nightly engagement refinement after 20 completed views overrides.
 - Quota counted per UTC day in Postgres, stop at `youtube.daily_quota_units` (9,000).
+- Code (2026-11-10): `internal/youtube` (Client interface, HTTPClient, `fake` for tests and `FAKE_VENDORS`), `internal/langdetect` (lingua-go, `Fake` in tests), `internal/catalog` (`SearchOnce`, `Refresh`, `RefineLevels`, `ApplySources`, River workers in `jobs.go`). Units are reserved atomically before each call (`reserve`); a search is 100 + 1 per 50 new IDs.
+- Source picking: fewest searches today for the language plus live clips / 500, then oldest `last_run_at`. `run_count` rotates six `publishedAfter` windows. Every run is in `youtube_search_log`.
+- Rejected IDs go to `youtube_rejects` (ID only, 30 days, pruned by the refresh job), so repeat searches don't pay videos.list for them.
+- Removed clips keep their row (for likes and stats) with title, description, channel title and tags cleared.
 
 ## Feed and events (V4)
 
