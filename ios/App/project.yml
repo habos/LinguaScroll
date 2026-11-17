@@ -2,6 +2,7 @@
 #   brew install xcodegen
 #   cd ios/App && xcodegen && open LinguaScroll.xcodeproj
 # First build: Xcode asks to trust the OpenAPIGenerator plugin (Trust & Enable).
+# Command line: `make ios` (xcodegen + xcodebuild for the simulator).
 name: LinguaScroll
 options:
   bundleIdPrefix: app.linguascroll
@@ -24,6 +25,11 @@ targets:
     type: application
     platform: iOS
     sources: [Sources]
+    # Config.xcconfig optionally includes Local.xcconfig (git-ignored) so you
+    # can set API_BASE_URL to your Mac's LAN address without editing this file.
+    configFiles:
+      Debug: Config.xcconfig
+      Release: Config.xcconfig
     dependencies:
       - package: APIClient
       - package: Core
@@ -37,7 +43,8 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         # Server the app talks to. Simulator: localhost. Real phone: your Mac's
-        # LAN address, e.g. http://192.168.1.20:8080 (set API_BASE_URL below).
+        # LAN address, e.g. http://192.168.1.20:8080 (set API_BASE_URL in
+        # ios/App/Local.xcconfig, see Config.xcconfig).
         APIBaseURL: $(API_BASE_URL)
         # v0 talks to the Go server on your Mac over Wi-Fi.
         NSLocalNetworkUsageDescription: LinguaScroll connects to the development server on your Mac.
@@ -51,7 +58,6 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"
-        API_BASE_URL: "http:/$()/localhost:8080"
   LinguaScrollTests:
     type: bundle.unit-test
     platform: iOS

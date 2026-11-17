@@ -68,6 +68,21 @@ lint: ## go vet, gofmt and OpenAPI lint
 	@out=$$(cd backend && gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 	npx --yes @redocly/cli@1.34.5 lint api/openapi.yaml
 
+IOS_DESTINATION ?= generic/platform=iOS Simulator
+IOS_FLAGS       := -project ios/App/LinguaScroll.xcodeproj -scheme LinguaScroll \
+	-skipPackagePluginValidation -skipMacroValidation
+
+.PHONY: ios
+ios: ## Generate the Xcode project and build the iOS app for the simulator
+	@command -v xcodegen >/dev/null || { echo "XcodeGen is not installed. Install it with: brew install xcodegen"; exit 1; }
+	cd ios/App && xcodegen --quiet
+	xcodebuild $(IOS_FLAGS) -destination '$(IOS_DESTINATION)' build
+
+.PHONY: ios-test
+ios-test: ## Run the iOS unit tests on a simulator (IOS_SIM=name to pick one)
+	cd ios/App && xcodegen --quiet
+	xcodebuild $(IOS_FLAGS) -destination 'platform=iOS Simulator,name=$(or $(IOS_SIM),iPhone 17)' test
+
 .PHONY: down
 down: ## Stop Postgres (data is kept in a Docker volume)
 	$(COMPOSE) down

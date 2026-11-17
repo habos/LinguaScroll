@@ -1,0 +1,12 @@
+// Build settings for the LinguaScroll app target (wired up in project.yml).
+//
+// Server the app talks to. The simulator reaches the Mac at localhost. For a
+// real phone, create ios/App/Local.xcconfig (git-ignored) with your Mac's
+// Wi-Fi address, then run xcodegen again:
+//
+//   API_BASE_URL = http:/$()/192.168.1.20:8080
+//
+// The $() stops xcconfig reading "//" as a comment.
+API_BASE_URL = http:/$()/localhost:8080
+
+#include? "Local.xcconfig"

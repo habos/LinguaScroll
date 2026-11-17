@@ -29,6 +29,16 @@ Try it: `curl localhost:8080/healthz`. Every other route except `/v1/config`, `/
 
 The seed loads 15 languages, config defaults, starter YouTube search terms and 30 placeholder clips. The placeholder clips have fake YouTube IDs; real clips arrive with the V3 catalog job.
 
+## iOS app
+
+```
+brew install xcodegen
+make ios        # xcodegen + xcodebuild for the simulator
+make ios-test   # unit tests (IOS_SIM="iPhone 17 Pro" to pick a simulator)
+```
+
+To run on your phone, put your Mac's Wi-Fi address in `ios/App/Local.xcconfig` (git-ignored, see `ios/App/Config.xcconfig`), run `xcodegen` in `ios/App`, then build from Xcode with your team selected. If Xcode reports "Build input files cannot be found" for the OpenAPIGenerator plugin, delete DerivedData once (Product > Clean Build Folder, or `rm -rf ~/Library/Developer/Xcode/DerivedData/LinguaScroll-*`).
+
 ## Layout
 
 ```

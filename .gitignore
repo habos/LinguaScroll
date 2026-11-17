@@ -14,3 +14,6 @@ DerivedData/
 ios/Spike/*.xcodeproj/
 ios/App/*.xcodeproj/
 ios/App/Sources/Info.plist
+
+# Per-developer iOS settings (see ios/App/Config.xcconfig)
+ios/App/Local.xcconfig
