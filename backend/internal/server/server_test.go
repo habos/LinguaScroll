@@ -82,7 +82,11 @@ func TestRoutes(t *testing.T) {
 		{"protected route without token", "GET", "/v1/feed?language=es", "", 401, "unauthorized"},
 		{"protected route with bad token", "GET", "/v1/me", "nope", 401, "unauthorized"},
 		{"expired token", "GET", "/v1/me", "expired", 401, "unauthorized"},
-		{"valid token reaches a stub", "GET", "/v1/me/likes", token, 501, "not_implemented"},
+		{"valid token reaches likes", "GET", "/v1/me/likes", token, 200, ""},
+		{"bad likes cursor", "GET", "/v1/me/likes?cursor=zz", token, 400, "bad_cursor"},
+		{"like an unknown clip", "PUT", "/v1/videos/00000000-0000-0000-0000-000000000001/like", token, 404, "not_found"},
+		{"unlike an unknown clip is idempotent", "DELETE", "/v1/videos/00000000-0000-0000-0000-000000000001/like", token, 204, ""},
+		{"blocked channels list", "GET", "/v1/channel-blocks", token, 200, ""},
 		{"languages are public", "GET", "/v1/languages", "", 200, ""},
 		{"config is public", "GET", "/v1/config", "", 200, ""},
 		{"anonymous session is public", "POST", "/v1/sessions/anonymous", "", 400, "bad_request"},
@@ -106,7 +110,7 @@ func TestRoutes(t *testing.T) {
 func TestRateLimit(t *testing.T) {
 	ts, token := newServer(t, 3)
 	for i := range 3 {
-		if status, _ := do(t, "GET", ts.URL+"/v1/me/likes", token); status != 501 {
+		if status, _ := do(t, "GET", ts.URL+"/v1/me/likes", token); status != 200 {
 			t.Fatalf("request %d: status %d", i, status)
 		}
 	}
