@@ -40,7 +40,6 @@ public final class AppModel {
         get { access(keyPath: \.captionsOn); return defaults.object(forKey: Self.captionsKey) as? Bool ?? config.youtubeCaptionsDefault }
         set { withMutation(keyPath: \.captionsOn) { defaults.set(newValue, forKey: Self.captionsKey) } }
     }
-    public var hiddenChannels: HiddenChannels { HiddenChannels(defaults: defaults) }
 
     public let deps: AppDependencies
     private let defaults: UserDefaults
@@ -159,7 +158,7 @@ public final class AppModel {
         apply(fresh)
     }
 
-    /// Reset my data: `DELETE /v1/me`, then forget the token, install ID, cached user, local lists and
+    /// Reset my data: `DELETE /v1/me`, then forget the token, install ID, cached user, settings and
     /// queued events, and go back to onboarding. The age block stays (SessionManager.reset keeps it).
     public func resetData() async throws {
         let users = deps.users
@@ -169,7 +168,6 @@ public final class AppModel {
         defaults.removeObject(forKey: Self.cachedUserKey)
         defaults.removeObject(forKey: Self.captionsKey)
         defaults.removeObject(forKey: FeedModel.firstLikeKey)
-        hiddenChannels.clear()
         user = nil
         activeLanguage = ""
         selectedTab = .feed

@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var app
     @Binding var path: [MeRoute]
+    @State private var hiddenCount: Int?
 
     var body: some View {
         @Bindable var app = app
@@ -24,7 +25,7 @@ struct SettingsView: View {
             Section {
                 NavigationLink(value: MeRoute.hiddenChannels) {
                     LabeledContent {
-                        Text(verbatim: "\(app.hiddenChannels.all.count)")
+                        Text(verbatim: hiddenCount.map(String.init) ?? "")
                     } label: { Text("Hidden channels") }
                 }
                 NavigationLink(value: MeRoute.privacy(confirmReset: false)) { Text("About your data") }
@@ -42,6 +43,10 @@ struct SettingsView: View {
         .background(Palette.base.ignoresSafeArea())
         .navigationTitle(Text("Settings"))
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            let feed = app.deps.feed
+            hiddenCount = try? await app.deps.session.authorized { try await feed.channelBlocks(token: $0) }.count
+        }
     }
 
     /// "{version} ({build})"
@@ -112,23 +117,37 @@ struct NativeLanguageView: View {
     }
 }
 
-/// Channels hidden on this device, each with "Show again" (`DELETE /v1/channel-blocks/{id}`).
+/// Channels hidden on this device (`GET /v1/channel-blocks`), each with "Show again"
+/// (`DELETE /v1/channel-blocks/{id}`).
 struct HiddenChannelsView: View {
+    enum Load: Equatable { case loading, ready, failed }
+
     @Environment(AppModel.self) private var app
-    @State private var channels: [HiddenChannels.Entry] = []
+    @State private var channels: [BlockedChannel] = []
+    @State private var load: Load = .loading
     @State private var failed = false
 
     var body: some View {
         List {
-            if channels.isEmpty {
-                Text("No hidden channels.").foregroundStyle(Palette.textSecondary)
+            switch load {
+            case .loading:
+                ProgressView().frame(maxWidth: .infinity)
+            case .failed:
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Couldn't load your hidden channels").foregroundStyle(Palette.textPrimary)
+                    Button("Try again") { Task { await reload() } }.foregroundStyle(Palette.accent)
+                }
+            case .ready:
+                if channels.isEmpty {
+                    Text("No hidden channels.").foregroundStyle(Palette.textSecondary)
+                }
             }
             if failed {
                 Text("Couldn't connect. Check your connection and try again.").foregroundStyle(Palette.destructive)
             }
             ForEach(channels) { channel in
                 HStack {
-                    Text(verbatim: channel.title ?? String(localized: "Unknown channel")).foregroundStyle(Palette.textPrimary)
+                    Text(verbatim: Self.displayTitle(channel)).foregroundStyle(Palette.textPrimary)
                     Spacer()
                     Button("Show again") { unhide(channel) }.foregroundStyle(Palette.accent)
                 }
@@ -140,17 +159,32 @@ struct HiddenChannelsView: View {
         .background(Palette.base.ignoresSafeArea())
         .navigationTitle(Text("Hidden channels"))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { channels = app.hiddenChannels.all }
+        .task { await reload() }
     }
 
-    private func unhide(_ channel: HiddenChannels.Entry) {
+    /// The server sends no title once no clip of the channel is left (YouTube 30-day rule).
+    static func displayTitle(_ channel: BlockedChannel) -> String {
+        channel.title ?? String(localized: "Unknown channel")
+    }
+
+    private func reload() async {
+        if channels.isEmpty { load = .loading }
+        let feed = app.deps.feed
+        do {
+            channels = try await app.deps.session.authorized { try await feed.channelBlocks(token: $0) }
+            load = .ready
+        } catch {
+            if channels.isEmpty { load = .failed }
+        }
+    }
+
+    private func unhide(_ channel: BlockedChannel) {
         failed = false
         let feed = app.deps.feed, id = channel.id
         Task {
             do {
                 try await app.deps.session.authorized { try await feed.setChannelBlocked(false, channelID: id, token: $0) }
-                app.hiddenChannels.remove(id)
-                channels = app.hiddenChannels.all
+                channels.removeAll { $0.id == id }
             } catch {
                 failed = true
             }

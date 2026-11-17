@@ -7,7 +7,9 @@ import XCTest
 actor FakeAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
     private(set) var calls: [String] = []
     private var failActions = false
+    private var notFound = false
     func setFailActions(_ fail: Bool) { failActions = fail }
+    func setNotFound(_ value: Bool) { notFound = value }
     private struct Failed: Error {}
     var user = UserProfile(id: "u1", ageBand: "adult", uiLanguage: "en", nativeLanguage: "en", learning: [
         LearningLanguage(language: "es", level: 3, isActive: true),
@@ -33,6 +35,7 @@ actor FakeAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
     func feed(language: String, cursor: String?, token: String) async throws -> FeedPage { calls.append("feed \(language)"); return FeedPage(items: [], nextCursor: nil) }
     func setLiked(_ liked: Bool, videoID: String, token: String) async throws {
         calls.append("liked \(liked) \(videoID)")
+        if notFound { throw APIError.server(status: 404, code: "not_found") }
         if failActions { throw Failed() }
     }
     func setSaved(_ saved: Bool, videoID: String, token: String) async throws {
@@ -40,6 +43,8 @@ actor FakeAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
         if failActions { throw Failed() }
     }
     func hide(videoID: String, token: String) async throws { calls.append("hide \(videoID)") }
+    func unhide(videoID: String, token: String) async throws { calls.append("unhide \(videoID)") }
+    func channelBlocks(token: String) async throws -> [BlockedChannel] { calls.append("channelBlocks"); return [] }
     func setChannelBlocked(_ blocked: Bool, channelID: String, token: String) async throws { calls.append("block \(blocked) \(channelID)") }
     func report(videoID: String, reason: ReportReason, token: String) async throws { calls.append("report \(videoID)") }
     func library(_ kind: LibraryKind, cursor: String?, token: String) async throws -> FeedPage {
@@ -113,7 +118,6 @@ final class MeTests: XCTestCase {
     func testResetErasesAndReturnsToOnboarding() async throws {
         let app = try await registeredApp()
         AgeBlock.set(in: keychain)
-        app.hiddenChannels.add("UC9", title: "x")
         try await app.resetData()
         let calls = await api.calls
         XCTAssertTrue(calls.contains("deleteMe"))
@@ -122,19 +126,51 @@ final class MeTests: XCTestCase {
         XCTAssertNil(keychain.string(for: KeychainKey.sessionToken))
         XCTAssertNil(keychain.string(for: KeychainKey.installID))
         XCTAssertTrue(AgeBlock.isBlocked(in: keychain))
-        XCTAssertTrue(app.hiddenChannels.all.isEmpty)
     }
 
-    // V7-05: hiding a channel lists it under Hidden channels; Undo takes it off again.
-    func testBlockedChannelIsListedAndUndoRemovesIt() {
+    // V7-05: hiding a channel blocks it on the server at once; Undo unblocks it (after the block was sent).
+    func testBlockChannelCallsServerAndUndoUnblocks() async throws {
+        _ = try await registeredApp()
         let model = FeedModel(library: .saved, cards: [card(1, channel: "UC7"), card(2)], cursor: nil, startIndex: 0,
                               deps: deps, captionsOn: false, defaults: defaults)
         model.blockChannel(card(1, channel: "UC7"))
-        let hidden = HiddenChannels(defaults: defaults)
-        XCTAssertEqual(hidden.all.map(\.id), ["UC7"])
-        XCTAssertEqual(hidden.all.first?.title, "Channel UC7")
+        XCTAssertEqual(model.cards.map(\.id), [card(2).id])
         model.undo()
-        XCTAssertTrue(hidden.all.isEmpty)
+        XCTAssertEqual(model.cards.count, 2)
+        await eventually { await self.api.calls.contains("block false UC7") }
+        let calls = await api.calls.filter { $0.hasPrefix("block") }
+        XCTAssertEqual(calls, ["block true UC7", "block false UC7"])
+    }
+
+    // Feed Undo after hiding a clip uses DELETE /v1/videos/{id}/hide, after the hide.
+    func testHideThenUndoCallsUnhide() async throws {
+        _ = try await registeredApp()
+        let model = FeedModel(library: .saved, cards: [card(1), card(2)], cursor: nil, startIndex: 0,
+                              deps: deps, captionsOn: false, defaults: defaults)
+        model.hide(card(1))
+        model.undo()
+        await eventually { await self.api.calls.contains("unhide \(self.card(1).id)") }
+        let calls = await api.calls.filter { $0.contains("hide") }
+        XCTAssertEqual(calls, ["hide \(card(1).id)", "unhide \(card(1).id)"])
+    }
+
+    // Hidden channels whose clips are all gone have no title from the server.
+    func testHiddenChannelWithoutTitleShowsUnknown() {
+        XCTAssertEqual(HiddenChannelsView.displayTitle(BlockedChannel(id: "UC1", title: nil, blockedAt: Date())), "Unknown channel")
+        XCTAssertEqual(HiddenChannelsView.displayTitle(BlockedChannel(id: "UC1", title: "Easy Spanish", blockedAt: Date())), "Easy Spanish")
+    }
+
+    // 404 on like (clip removed from the catalog): the clip leaves the list quietly, no error message.
+    func testLikeOnRemovedClipDropsItWithoutError() async throws {
+        _ = try await registeredApp()
+        await api.setNotFound(true)
+        let model = FeedModel(library: .saved, cards: [card(1), card(2)], cursor: nil, startIndex: 0,
+                              deps: deps, captionsOn: false, defaults: defaults)
+        defaults.set(true, forKey: FeedModel.firstLikeKey)
+        model.toggleLike(card(1).id)
+        await eventually { model.cards.count == 1 }
+        XCTAssertEqual(model.cards.map(\.id), [card(2).id])
+        XCTAssertNil(model.barMessage)
     }
 
     // V7-06: thumbnails come from YouTube's public URL and are never cached to disk.
