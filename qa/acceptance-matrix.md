@@ -16,7 +16,7 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V1-06 **QA+** | Bogus bearer tokens from one address still hit the rate limit (429) | A | `server.TestRateLimitIgnoresMadeUpTokens` | pass @d0dd1b8 (PR #3) |
 | V1-07 **QA+** | `ensure_event_partitions` keeps working when `events_default` has rows | A | `migrations.TestEventPartitionsAbsorbStrayDefaultRows` (migration 00003) | pass @d0dd1b8 (PR #3) |
 | V1-08 **QA+** | Before hosting: rate limit keys on the real client IP behind the proxy (`Fly-Client-IP`), not the proxy's address | A | | gap (pre-deploy) |
-| V1-09 **QA+** | Expired `sessions` rows are cleaned up | A | | gap |
+| V1-09 **QA+** | Expired `sessions` rows are cleaned up | A | `engagement.TestCleanupSessions` (daily `session_cleanup` job) | pass @8ddf657 (PR #8) |
 
 ## V2 Devices and languages (PR #3)
 
@@ -60,16 +60,16 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V4-02 | After liking 3 clips from one channel, the next page includes that channel (within spacing) | A | `feed.TestLikesFromChannelRaiseIt` | pass @afc4a70 (PR #5) |
 | V4-03 | No channel twice in any 5 consecutive items, across page boundaries (holds when the language has ≥ 5 channels; relaxed on tiny catalogs by design) | A | `feed.TestNoRepeatsAndChannelSpacingOver20Pages` | pass @afc4a70 (PR #5) |
 | V4-04 | Hidden clip and blocked channel's clips never come back | A | `feed.TestHiddenBlockedRemovedAndOffLevelNeverReturn` | pass @afc4a70 (PR #5) |
-| V4-05 | Three reports from three devices remove a clip from every feed | A | | todo |
+| V4-05 | Three reports from three devices remove a clip from every feed | A | `engagement.TestThreeReportsRemoveClipAndRepeatsCountOnce` (removal uses `catalog.ClearYouTubeData`, Y9) | pass @8ddf657 (PR #8) |
 | V4-06 | No clip repeats across 20 consecutive pages (500 live clips) | A | `feed.TestNoRepeatsAndChannelSpacingOver20Pages` | pass @afc4a70 (PR #5) |
 | V4-07 | Score unit tests with fixed inputs, including the new-device case | A | `feed/rank_test.go` | pass @afc4a70 (PR #5) |
-| V4-08 **QA+** | Duplicate client event IDs counted once; batch > 200 rejected | A | | todo |
+| V4-08 **QA+** | Duplicate client event IDs counted once; batch > 200 rejected | A | `engagement.TestIngestDedupesAndDropsBadEvents`, `engagement.TestRollupCountsOnceAndUpserts` (dedupe is by `(id, at)`: retries must resend events unchanged) | pass @8ddf657 (PR #8) |
 | V4-09 **QA+** | p95 `GET /v1/feed` < 200 ms at 20,000 live clips per language | A (bench) | `feed.TestLatencyAt20kClips` (`FEED_LOAD_TEST=1`; p95 38 ms) | pass @afc4a70 (PR #5) |
-| V4-10 **QA+** | Like/save/block PUT and DELETE are idempotent; hide is PUT only | A | | todo |
-| V4-11 **QA+** | Event `at` far in the future or past is rejected or clamped, and never breaks partition creation | A | | todo |
+| V4-10 **QA+** | Like/save/hide/block PUT and DELETE are idempotent (un-hide `DELETE /v1/videos/{id}/hide` agreed with UX) | A | `engagement.TestTogglesAreIdempotent`, `server.TestRoutes` | pass @8ddf657 (PR #8) |
+| V4-11 **QA+** | Event `at` far in the future or past is rejected or clamped, and never breaks partition creation | A | `engagement.TestIngestDedupesAndDropsBadEvents` (> 7 days old or > 1 h ahead is dropped) | pass @8ddf657 (PR #8) |
 | V4-12 **QA+** | Music-category clips ≤ `feed.music_cap` of a page | A | `feed/rank_test.go` (assembly) | pass @afc4a70 (PR #5) |
-| V4-13 **QA+** | Same report from the same device twice counts once | A | | todo |
-| V4-14 **QA+** | `removed` clips never appear in feed, likes or saves lists | A | `feed.TestHiddenBlockedRemovedAndOffLevelNeverReturn` | pass @afc4a70 (PR #5) |
+| V4-13 **QA+** | Same report from the same device twice counts once | A | `engagement.TestThreeReportsRemoveClipAndRepeatsCountOnce` | pass @8ddf657 (PR #8) |
+| V4-14 **QA+** | `removed` clips never appear in feed, likes or saves lists | A | `feed.TestHiddenBlockedRemovedAndOffLevelNeverReturn`, `engagement.TestLikesListPagesAndSkipsRemoved` | pass @8ddf657 (PR #5, #8) |
 
 ## V5 iOS shell and onboarding
 
