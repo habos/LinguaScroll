@@ -11,7 +11,7 @@ description: How to build the LinguaScroll Go backend: API, River worker, Postgr
 - `log/slog` JSON logs, config from env (`.env.example` lists every key; no secrets committed).
 - goose migrations in `backend/migrations`. Feature code in `backend/internal/<module>`, vendor code only in `backend/internal/platform`.
 - `api/openapi.yaml` (OpenAPI 3.1) is the contract. `make gen` produces the Go strict-server interface (oapi-codegen) and the Swift client. Change the YAML first, then regenerate.
-- Makefile: `dev`, `test`, `lint`, `gen`, `migrate`, `seed`, `sources`. Fresh clone + `make dev` must run with no API keys (`FAKE_VENDORS=1`).
+- Makefile: `dev`, `test`, `lint`, `gen`, `migrate`, `seed`, `sources`. Fresh clone + `make dev` must run with no API keys (`FAKE_VENDORS=1`). Local Postgres is Docker on 127.0.0.1:54320 (not 5432, to avoid a Homebrew Postgres); `make check` verifies Go and Docker.
 - Outside services behind interfaces with fakes: only `YouTubeClient` and `LanguageDetector` (lingua-go) in v0.
 
 ## Conventions

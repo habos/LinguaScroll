@@ -5,8 +5,9 @@ SHELL := /bin/bash
 -include .env
 export
 
-DATABASE_URL      ?= postgres://postgres:postgres@localhost:5432/linguascroll?sslmode=disable
-TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+DB_PORT           := 54320
+DATABASE_URL      ?= postgres://postgres:postgres@127.0.0.1:$(DB_PORT)/linguascroll?sslmode=disable
+TEST_DATABASE_URL ?= postgres://postgres:postgres@127.0.0.1:$(DB_PORT)/postgres?sslmode=disable
 COMPOSE           := docker compose -f infra/docker-compose.yml
 SWIFT_SPEC        := ios/Packages/APIClient/Sources/APIClient/openapi.yaml
 
@@ -14,9 +15,18 @@ SWIFT_SPEC        := ios/Packages/APIClient/Sources/APIClient/openapi.yaml
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
 
+.PHONY: check
+check: ## Check that Go and a running Docker are available
+	@command -v go >/dev/null || { echo "Go is not installed. Install it with: brew install go"; exit 1; }
+	@command -v docker >/dev/null || { echo "Docker is not installed. Install Docker Desktop: https://www.docker.com/products/docker-desktop/"; exit 1; }
+	@docker info >/dev/null 2>&1 || { echo "Docker is installed but not running. Open Docker Desktop, wait for it to start, then run make again."; exit 1; }
+	@case "$(DATABASE_URL)" in *:$(DB_PORT)/*) ;; *) echo "Note: DATABASE_URL points at $(DATABASE_URL), not the Docker database on port $(DB_PORT). Check your .env.";; esac
+
 .PHONY: db
-db: ## Start Postgres in Docker and wait until it is ready
+db: check ## Start Postgres in Docker on port 54320, wait, and create the app database
 	$(COMPOSE) up -d --wait db
+	@$(COMPOSE) exec -T db psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'linguascroll'" | grep -q 1 \
+		|| $(COMPOSE) exec -T db createdb -U postgres linguascroll
 
 .PHONY: dev
 dev: db migrate seed ## Run Postgres, migrations, seed, then the API and worker

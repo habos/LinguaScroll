@@ -29,7 +29,7 @@ func Load() (Config, error) {
 	c := Config{
 		Env:                get("APP_ENV", "dev"),
 		HTTPAddr:           get("HTTP_ADDR", ":8080"),
-		DatabaseURL:        get("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/linguascroll?sslmode=disable"),
+		DatabaseURL:        get("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:54320/linguascroll?sslmode=disable"),
 		YouTubeAPIKey:      os.Getenv("YOUTUBE_API_KEY"),
 		AdminUser:          os.Getenv("ADMIN_USER"),
 		AdminPassword:      os.Getenv("ADMIN_PASSWORD"),
