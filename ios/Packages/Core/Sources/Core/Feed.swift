@@ -37,12 +37,22 @@ public struct VideoCard: Sendable, Equatable, Identifiable, Hashable {
 }
 
 public struct FeedPage: Sendable, Equatable {
+    /// Why an empty, final feed page is empty.
+    public enum EndReason: String, Sendable, Equatable {
+        /// The language has clips, but this device has been served all of them for now.
+        case caughtUp = "caught_up"
+        /// There are no clips in this language yet.
+        case noClips = "no_clips"
+    }
+
     public var items: [VideoCard]
     public var nextCursor: String?
+    public var endReason: EndReason?
 
-    public init(items: [VideoCard], nextCursor: String?) {
+    public init(items: [VideoCard], nextCursor: String?, endReason: EndReason? = nil) {
         self.items = items
         self.nextCursor = nextCursor
+        self.endReason = endReason
     }
 }
 
@@ -60,7 +70,8 @@ public enum ReportReason: String, Sendable, CaseIterable {
 
 /// Authenticated feed and clip actions. Tokens come from `SessionManager.authorized`.
 public protocol FeedAPI: Sendable {
-    /// Empty `items` with nil `nextCursor` = the device has watched everything in that language for now.
+    /// Empty `items` with nil `nextCursor` = nothing left to serve; `endReason` says whether the device
+    /// has watched everything (`caughtUp`) or the language has no clips yet (`noClips`).
     /// Throws `.server(400, "bad_cursor")` for a stale cursor: drop it and refetch.
     func feed(language: String, cursor: String?, token: String) async throws -> FeedPage
     func setLiked(_ liked: Bool, videoID: String, token: String) async throws

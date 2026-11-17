@@ -125,7 +125,8 @@ struct LiveAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
         switch try await transport({ try await client(token).getFeed(query: .init(language: language, cursor: cursor)) }) {
         case .ok(let ok):
             let page = try ok.body.json
-            return FeedPage(items: page.items.map(Self.card), nextCursor: page.nextCursor)
+            return FeedPage(items: page.items.map(Self.card), nextCursor: page.nextCursor,
+                            endReason: page.endReason.flatMap { FeedPage.EndReason(rawValue: $0.rawValue) })
         case .default(let status, let r):
             throw Self.error(status, try? r.body.json)
         }

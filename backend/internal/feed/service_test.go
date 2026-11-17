@@ -309,8 +309,20 @@ func TestFallbackLadder(t *testing.T) {
 		f.exec(`INSERT INTO events (id, user_id, video_id, type, at, props)
 		        VALUES ($1, $2, $3, 'view_end', now(), '{"watched_ms": 20000, "completed": true}')`, uuid.New(), user, id)
 	}
-	if p := f.page(user, cur); len(p.Items) != 0 || p.Next != nil {
-		t.Fatalf("all completed: %d items, next %v; want empty page, nil cursor", len(p.Items), p.Next)
+	if p := f.page(user, cur); len(p.Items) != 0 || p.Next != nil || p.NoClips {
+		t.Fatalf("all completed: %d items, next %v, no clips %v; want empty caught-up page", len(p.Items), p.Next, p.NoClips)
+	}
+}
+
+func TestEmptyLanguageSaysNoClips(t *testing.T) {
+	f := newFixture(t)
+	f.catalog(10, 10) // clips exist, but not in Korean
+	p, err := f.svc.Next(f.ctx, f.user, "ko", feed.Cursor{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Items) != 0 || p.Next != nil || !p.NoClips {
+		t.Fatalf("no Korean clips: %d items, next %v, no clips %v; want empty page with NoClips", len(p.Items), p.Next, p.NoClips)
 	}
 }
 

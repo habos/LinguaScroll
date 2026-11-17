@@ -56,6 +56,9 @@ type Item struct {
 type Page struct {
 	Items []Item
 	Next  *Cursor
+	// NoClips is set on an empty page when the language has no live clips
+	// at all, as opposed to this device having been served all of them.
+	NoClips bool
 }
 
 func (s Service) now() time.Time {
@@ -124,7 +127,12 @@ func (s Service) Next(ctx context.Context, user uuid.UUID, language string, cur 
 	}
 	clips := Assemble(ranked, explore, cfg.PageSize, exploreN, cfg.ChannelSpacing, cfg.MusicCap, cur.Recent, rng)
 	if len(clips) == 0 {
-		return Page{Items: []Item{}}, nil
+		var any bool
+		err := s.DB.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM videos WHERE language = $1 AND status = 'live')`, language).Scan(&any)
+		if err != nil {
+			return Page{}, err
+		}
+		return Page{Items: []Item{}, NoClips: !any}, nil
 	}
 
 	items, err := s.viewerState(ctx, user, clips)

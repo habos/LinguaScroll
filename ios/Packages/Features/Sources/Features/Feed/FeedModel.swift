@@ -31,7 +31,8 @@ public struct BarMessage: Equatable, Sendable {
 @MainActor
 @Observable
 public final class FeedModel {
-    public enum LoadState: Equatable { case loading, ready, offline, caughtUp }
+    /// `caughtUp`: watched everything for now. `noClips`: the language has no clips yet.
+    public enum LoadState: Equatable { case loading, ready, offline, caughtUp, noClips }
 
     public let language: String
     public private(set) var cards: [VideoCard] = []
@@ -106,7 +107,7 @@ public final class FeedModel {
 
     /// Retry after offline or caught-up (e.g. on foreground or the Try again button).
     public func retry() async {
-        if state == .caughtUp { hasMore = true; cursor = nil }
+        if state == .caughtUp || state == .noClips { hasMore = true; cursor = nil }
         if cards.isEmpty { state = .loading }
         await loadMore()
     }
@@ -132,9 +133,14 @@ public final class FeedModel {
             }
             self.cursor = page.nextCursor
             hasMore = page.nextCursor != nil
-            // Empty page + no cursor = watched everything for now. With clips still loaded,
-            // keep playing them; `retry()` (on foreground) asks again from the top.
-            state = cards.isEmpty && !hasMore ? .caughtUp : .ready
+            // Empty page + no cursor = nothing left to serve: either watched everything for now,
+            // or the language has no clips yet. With clips still loaded, keep playing them;
+            // `retry()` (on foreground) asks again from the top.
+            if cards.isEmpty && !hasMore {
+                state = page.endReason == .noClips ? .noClips : .caughtUp
+            } else {
+                state = .ready
+            }
         } catch APIError.server(400, "bad_cursor") {
             self.cursor = nil
             fetching = false

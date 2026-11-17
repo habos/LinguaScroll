@@ -50,6 +50,12 @@ func (s *Server) GetFeed(ctx context.Context, req api.GetFeedRequestObject) (api
 	if page.Next != nil {
 		next := page.Next.Encode()
 		out.NextCursor = &next
+	} else if len(page.Items) == 0 {
+		reason := api.CaughtUp
+		if page.NoClips {
+			reason = api.NoClips
+		}
+		out.EndReason = &reason
 	}
 	return out, nil
 }

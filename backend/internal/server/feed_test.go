@@ -70,4 +70,24 @@ func TestGetFeedHTTP(t *testing.T) {
 			cursor = *body.NextCursor
 		}
 	}
+
+	// A language with no clips at all says so, rather than "caught up".
+	req, _ := http.NewRequest("GET", ts.URL+"/v1/feed?language=ko", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var empty struct {
+		Items      []json.RawMessage `json:"items"`
+		NextCursor *string           `json:"next_cursor"`
+		EndReason  *string           `json:"end_reason"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&empty); err != nil || res.StatusCode != 200 {
+		t.Fatalf("ko: status %d, %v", res.StatusCode, err)
+	}
+	if len(empty.Items) != 0 || empty.NextCursor != nil || empty.EndReason == nil || *empty.EndReason != "no_clips" {
+		t.Fatalf("ko: %d items, next %v, end_reason %v; want no_clips", len(empty.Items), empty.NextCursor, empty.EndReason)
+	}
 }

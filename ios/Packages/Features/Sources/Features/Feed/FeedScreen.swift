@@ -47,6 +47,10 @@ struct FeedScreen: View {
             StateView(title: String(localized: "You're offline"),
                       detail: String(localized: "We'll carry on as soon as you're back."),
                       button: String(localized: "Try again")) { Task { await feed.retry() } }
+        } else if let feed, feed.state == .noClips {
+            StateView(title: String(localized: "No \(languageName) clips yet"),
+                      detail: String(localized: "We're still gathering clips in \(languageName). Check back soon, or try another language."),
+                      button: String(localized: "Switch language")) { showSwitcher = true }
         } else if let feed, feed.state == .caughtUp {
             StateView(title: String(localized: "You've watched everything in \(languageName) for now"),
                       detail: String(localized: "New clips arrive every day. Meanwhile, try another language or rewatch what you saved."),

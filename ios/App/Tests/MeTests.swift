@@ -30,7 +30,12 @@ actor FakeAPI: SessionAPI, CatalogAPI, UserAPI, FeedAPI {
     }
     func setNativeLanguage(_ code: String, token: String) async throws -> UserProfile { calls.append("native \(code)"); return user }
     func deleteMe(token: String) async throws { calls.append("deleteMe") }
-    func feed(language: String, cursor: String?, token: String) async throws -> FeedPage { calls.append("feed \(language)"); return FeedPage(items: [], nextCursor: nil) }
+    private var feedEnd: FeedPage.EndReason?
+    func setFeedEnd(_ reason: FeedPage.EndReason?) { feedEnd = reason }
+    func feed(language: String, cursor: String?, token: String) async throws -> FeedPage {
+        calls.append("feed \(language)")
+        return FeedPage(items: [], nextCursor: nil, endReason: feedEnd)
+    }
     func setLiked(_ liked: Bool, videoID: String, token: String) async throws {
         calls.append("liked \(liked) \(videoID)")
         if failActions { throw Failed() }
@@ -87,6 +92,19 @@ final class MeTests: XCTestCase {
     }
 
     // V7-03: changing Spanish's level shows at once and is sent with PUT /v1/me/languages/es (active untouched).
+    func testEmptyLanguageShowsNoClipsNotCaughtUp() async throws {
+        _ = try await registeredApp()
+        await api.setFeedEnd(.noClips)
+        let empty = FeedModel(language: "ko", deps: deps, captionsOn: false, defaults: defaults)
+        await empty.start()
+        XCTAssertEqual(empty.state, .noClips)
+
+        await api.setFeedEnd(.caughtUp)
+        let watched = FeedModel(language: "es", deps: deps, captionsOn: false, defaults: defaults)
+        await watched.start()
+        XCTAssertEqual(watched.state, .caughtUp)
+    }
+
     func testChangingLevelUpdatesUserAndCallsPut() async throws {
         let app = try await registeredApp()
         app.setLevel(5, for: "es")

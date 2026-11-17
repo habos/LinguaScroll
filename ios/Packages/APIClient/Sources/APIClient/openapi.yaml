@@ -620,6 +620,14 @@ components:
         next_cursor:
           type: string
           nullable: true
+        end_reason:
+          type: string
+          enum: [caught_up, no_clips]
+          description: >
+            Feed only. Set when items is empty and next_cursor is null.
+            caught_up: the language has clips but this device has been
+            served all of them for now. no_clips: the catalog has no live
+            clips in this language yet.
     ChannelBlock:
       type: object
       required: [channel_id, channel_title, blocked_at]
