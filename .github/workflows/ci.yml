@@ -48,3 +48,48 @@ jobs:
       - name: Build the generated Swift client
         working-directory: ios/Packages/APIClient
         run: swift build
+
+  ios-spike:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the spike project
+        working-directory: ios/Spike
+        run: brew install xcodegen && xcodegen
+      - name: Build the spike for the simulator
+        working-directory: ios/Spike
+        shell: bash # -eo pipefail, so a failed build fails the step
+        run: >-
+          xcodebuild build -project LinguaScrollSpike.xcodeproj -scheme LinguaScrollSpike
+          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1
+          | grep -E '(error|warning):|\*\* BUILD'
+
+  ios-core:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: No advertising ID or tracking prompt (QA V5-06)
+        shell: bash
+        run: |
+          if grep -rnE 'AdSupport|AppTrackingTransparency|advertisingIdentifier' ios --include='*.swift' --include='*.yml' --include='*.plist'; then
+            echo "::error::v0 must not touch the advertising ID or ATT"; exit 1
+          fi
+      - name: Core unit tests (install ID, 401 recovery, event retry)
+        working-directory: ios/Packages/Core
+        run: swift test
+
+  ios-app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the app project
+        working-directory: ios/App
+        run: brew install xcodegen && xcodegen
+      - name: Build and test the app on the smallest iPhone (QA rows V6-05, V6-08, V6-09, V6-10)
+        working-directory: ios/App
+        shell: bash # -eo pipefail, so a failed build or test fails the step
+        run: >-
+          xcodebuild test -project LinguaScroll.xcodeproj -scheme LinguaScroll
+          -destination 'platform=iOS Simulator,name=iPhone SE (3rd generation)' -skipPackagePluginValidation
+          CODE_SIGNING_ALLOWED=NO 2>&1
+          | grep -E '(error|warning):|\*\* (BUILD|TEST)|Test Case|Executed'
