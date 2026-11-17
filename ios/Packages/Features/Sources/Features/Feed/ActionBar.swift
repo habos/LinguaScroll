@@ -94,6 +94,12 @@ final class ActionBar: UIView {
             row.centerYAnchor.constraint(equalTo: centerYAnchor),
             heightAnchor.constraint(greaterThanOrEqualToConstant: Self.minHeight),
         ])
+        // The bar sits between the paging player area and the bottom of the screen, and
+        // neither side has an intrinsic height. Without this the layout is ambiguous and
+        // Auto Layout may give the bar most of the screen, squashing the player to nothing.
+        let compact = heightAnchor.constraint(equalToConstant: Self.minHeight)
+        compact.priority = .defaultHigh
+        compact.isActive = true
     }
 
     required init?(coder: NSCoder) { fatalError() }
