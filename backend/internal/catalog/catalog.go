@@ -259,34 +259,6 @@ func Keep(v youtube.Video) bool {
 		!v.MadeForKids && !v.AgeRestricted && v.EmbedHeight > v.EmbedWidth
 }
 
-// Classification is how a clip's language was decided.
-type Classification struct {
-	Language   string
-	Source     string // audio_tag | seed_channel | text_detect
-	Confidence float64
-}
-
-// ClassifyLanguage applies the V3 rules for target language; the first rule
-// that applies wins. ok=false means drop the clip.
-func ClassifyLanguage(v youtube.Video, target string, seedChannels map[string]bool, det langdetect.Detector, minConfidence float64) (Classification, bool) {
-	if v.DefaultAudioLanguage != "" {
-		if strings.EqualFold(primarySubtag(v.DefaultAudioLanguage), primarySubtag(target)) {
-			return Classification{target, "audio_tag", 1}, true
-		}
-		return Classification{}, false
-	}
-	if seedChannels[v.ChannelID] {
-		return Classification{target, "seed_channel", 1}, true
-	}
-	if det != nil {
-		lang, conf := det.Detect(detectText(v))
-		if lang == target && conf >= minConfidence {
-			return Classification{target, "text_detect", conf}, true
-		}
-	}
-	return Classification{}, false
-}
-
 func detectText(v youtube.Video) string {
 	return strings.Join(append([]string{v.Title, shortDescription(v.Description)}, v.Tags...), "\n")
 }
@@ -385,15 +357,15 @@ func (s *Service) store(ctx context.Context, src source, vids []youtube.Video) (
 	if len(vids) == 0 {
 		return 0, nil
 	}
-	minConf, err := appconfig.Get(ctx, s.cfg(), "youtube.min_language_confidence", 0.8)
+	rules, err := s.languageRules(ctx, src.Language)
+	if err != nil {
+		return 0, err
+	}
+	blocked, err := s.blockedChannels(ctx)
 	if err != nil {
 		return 0, err
 	}
 	kw, err := s.levelKeywords(ctx)
-	if err != nil {
-		return 0, err
-	}
-	seeds, err := s.seedChannels(ctx, src.Language)
 	if err != nil {
 		return 0, err
 	}
@@ -405,7 +377,13 @@ func (s *Service) store(ctx context.Context, src source, vids []youtube.Video) (
 			}
 			continue
 		}
-		c, ok := ClassifyLanguage(v, src.Language, seeds, s.Detect, minConf)
+		if blocked[v.ChannelID] {
+			if err := s.reject(ctx, v.ID, "channel"); err != nil {
+				return kept, err
+			}
+			continue
+		}
+		c, ok := ClassifyLanguage(v, rules)
 		if !ok {
 			if err := s.reject(ctx, v.ID, "language"); err != nil {
 				return kept, err
@@ -476,62 +454,189 @@ func nonNil(s []string) []string {
 }
 
 // Refresh re-reads every live clip last refreshed more than RefreshAfter
-// ago, 50 per videos.list call. Clips that are gone, private or no longer
-// embeddable become removed with their text cleared. It returns how many
-// clips were refreshed and removed.
+// ago, plus clips reported as not in their language, 50 per videos.list
+// call. Clips that are gone, private, no longer embeddable, from a blocked
+// channel or failing today's language rules become removed with their text
+// cleared. It returns how many clips were refreshed and removed.
 func (s *Service) Refresh(ctx context.Context) (refreshed, removed int, err error) {
 	if _, err := s.DB.Exec(ctx, `DELETE FROM youtube_rejects WHERE rejected_at < $1`, s.now().Add(-RejectTTL)); err != nil {
 		return 0, 0, err
 	}
+	r := newRechecker(s)
 	for {
 		rows, err := s.DB.Query(ctx, `
-			SELECT youtube_video_id FROM videos
-			 WHERE source = 'youtube' AND status = 'live' AND refreshed_at < $1
-			 ORDER BY refreshed_at LIMIT $2`, s.now().Add(-RefreshAfter), youtube.MaxIDs)
+			SELECT youtube_video_id, language, language_source FROM videos
+			 WHERE source = 'youtube' AND status = 'live' AND (refreshed_at < $1 OR language_recheck)
+			 ORDER BY language_recheck DESC, refreshed_at LIMIT $2`, s.now().Add(-RefreshAfter), youtube.MaxIDs)
 		if err != nil {
 			return refreshed, removed, err
 		}
-		ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
-		if err != nil || len(ids) == 0 {
+		clips, err := pgx.CollectRows(rows, pgx.RowToStructByPos[storedClip])
+		if err != nil || len(clips) == 0 {
 			return refreshed, removed, err
 		}
-		if err := s.reserveWithin(ctx, youtube.VideosCost, RefreshHeadroom); err != nil {
-			if errors.Is(err, ErrQuotaSpent) {
-				return refreshed, removed, nil // tomorrow
-			}
-			return refreshed, removed, err
+		f, rm, err := r.batch(ctx, clips)
+		refreshed, removed = refreshed+f, removed+rm
+		if errors.Is(err, ErrQuotaSpent) {
+			return refreshed, removed, nil // tomorrow
 		}
-		vs, err := s.YT.Videos(ctx, ids)
 		if err != nil {
 			return refreshed, removed, err
-		}
-		got := map[string]youtube.Video{}
-		for _, v := range vs {
-			got[v.ID] = v
-		}
-		for _, id := range ids {
-			v, ok := got[id]
-			if !ok || !stillAllowed(v) {
-				reason := "youtube_filters" // made for kids or age-restricted since
-				if !ok || !v.Embeddable || !v.Public {
-					reason = "youtube_unavailable"
-				}
-				if _, err := s.DB.Exec(ctx, `UPDATE videos SET `+ClearYouTubeData+`, hold_reason = $2 WHERE youtube_video_id = $1`, id, reason); err != nil {
-					return refreshed, removed, err
-				}
-				removed++
-				continue
-			}
-			if _, err := s.DB.Exec(ctx, `
-				UPDATE videos SET youtube_title = $2, youtube_description = $3, youtube_tags = $4, youtube_channel_title = $5,
-				       youtube_category_id = $6, view_count = $7, like_count = $8, has_captions = $9, refreshed_at = now()
-				 WHERE youtube_video_id = $1`,
-				id, v.Title, shortDescription(v.Description), nonNil(v.Tags), v.ChannelTitle, v.CategoryID, v.ViewCount, v.LikeCount, v.HasCaptions); err != nil {
-				return refreshed, removed, err
-			}
-			refreshed++
 		}
 	}
+}
+
+// RecheckLanguages runs every live YouTube clip through today's language
+// rules and filters now, whatever its age (1 unit per 50 clips, inside the
+// refresh headroom). Use it after tightening the rules to purge clips that
+// got in under the old ones. It returns how many clips were kept and
+// removed.
+func (s *Service) RecheckLanguages(ctx context.Context) (kept, removed int, err error) {
+	r := newRechecker(s)
+	after := ""
+	for {
+		rows, err := s.DB.Query(ctx, `
+			SELECT youtube_video_id, language, language_source FROM videos
+			 WHERE source = 'youtube' AND status = 'live' AND youtube_video_id > $1
+			 ORDER BY youtube_video_id LIMIT $2`, after, youtube.MaxIDs)
+		if err != nil {
+			return kept, removed, err
+		}
+		clips, err := pgx.CollectRows(rows, pgx.RowToStructByPos[storedClip])
+		if err != nil || len(clips) == 0 {
+			return kept, removed, err
+		}
+		after = clips[len(clips)-1].ID
+		k, rm, err := r.batch(ctx, clips)
+		kept, removed = kept+k, removed+rm
+		if err != nil {
+			return kept, removed, err
+		}
+	}
+}
+
+type storedClip struct {
+	ID, Language, LanguageSource string
+}
+
+// rechecker re-reads stored clips and applies the current filters and
+// language rules, caching per-language rules for one run.
+type rechecker struct {
+	s       *Service
+	rules   map[string]LanguageRules
+	blocked map[string]bool
+}
+
+func newRechecker(s *Service) *rechecker {
+	return &rechecker{s: s, rules: map[string]LanguageRules{}}
+}
+
+func (r *rechecker) rulesFor(ctx context.Context, lang string) (LanguageRules, error) {
+	if lr, ok := r.rules[lang]; ok {
+		return lr, nil
+	}
+	lr, err := r.s.languageRules(ctx, lang)
+	if err == nil {
+		r.rules[lang] = lr
+	}
+	return lr, err
+}
+
+// batch handles up to 50 clips with one videos.list call.
+func (r *rechecker) batch(ctx context.Context, clips []storedClip) (refreshed, removed int, err error) {
+	s := r.s
+	if r.blocked == nil {
+		if r.blocked, err = s.blockedChannels(ctx); err != nil {
+			return 0, 0, err
+		}
+	}
+	if err := s.reserveWithin(ctx, youtube.VideosCost, RefreshHeadroom); err != nil {
+		return 0, 0, err
+	}
+	ids := make([]string, len(clips))
+	for i, c := range clips {
+		ids[i] = c.ID
+	}
+	vs, err := s.YT.Videos(ctx, ids)
+	if err != nil {
+		return 0, 0, err
+	}
+	got := map[string]youtube.Video{}
+	for _, v := range vs {
+		got[v.ID] = v
+	}
+	for _, c := range clips {
+		v, ok := got[c.ID]
+		reason := ""
+		var cl Classification
+		switch {
+		case !ok || !v.Embeddable || !v.Public:
+			reason = "youtube_unavailable"
+		case !stillAllowed(v):
+			reason = "youtube_filters" // made for kids or age-restricted since
+		case r.blocked[v.ChannelID]:
+			reason = "channel"
+		case c.LanguageSource == "manual":
+			cl = Classification{c.Language, "manual", 1}
+		default:
+			lr, err := r.rulesFor(ctx, c.Language)
+			if err != nil {
+				return refreshed, removed, err
+			}
+			if cl, ok = ClassifyLanguage(v, lr); !ok {
+				reason = "language"
+			}
+		}
+		if reason != "" {
+			if _, err := s.DB.Exec(ctx, `UPDATE videos SET `+ClearYouTubeData+`, hold_reason = $2, language_recheck = false WHERE youtube_video_id = $1`, c.ID, reason); err != nil {
+				return refreshed, removed, err
+			}
+			removed++
+			continue
+		}
+		if _, err := s.DB.Exec(ctx, `
+			UPDATE videos SET youtube_title = $2, youtube_description = $3, youtube_tags = $4, youtube_channel_title = $5,
+			       youtube_category_id = $6, view_count = $7, like_count = $8, has_captions = $9,
+			       language_source = $10, language_confidence = $11, language_recheck = false, refreshed_at = now()
+			 WHERE youtube_video_id = $1`,
+			c.ID, v.Title, shortDescription(v.Description), nonNil(v.Tags), v.ChannelTitle, v.CategoryID, v.ViewCount, v.LikeCount, v.HasCaptions,
+			cl.Source, cl.Confidence); err != nil {
+			return refreshed, removed, err
+		}
+		refreshed++
+	}
+	return refreshed, removed, nil
+}
+
+// languageRules loads the data-driven language rules for lang.
+func (s *Service) languageRules(ctx context.Context, lang string) (LanguageRules, error) {
+	r := LanguageRules{Target: lang, Detector: s.Detect}
+	var err error
+	if r.MinConfidence, err = appconfig.Get(ctx, s.cfg(), "youtube.min_language_confidence", 0.8); err != nil {
+		return r, err
+	}
+	if r.MinScriptShare, err = appconfig.Get(ctx, s.cfg(), "youtube.min_script_share", 0.5); err != nil {
+		return r, err
+	}
+	if r.SeedChannels, err = s.seedChannels(ctx, lang); err != nil {
+		return r, err
+	}
+	err = s.DB.QueryRow(ctx, `SELECT coalesce((SELECT script FROM languages WHERE code = $1), '')`, lang).Scan(&r.Script)
+	if err == nil && r.Script != "" && scriptTables(r.Script) == nil {
+		s.log().Warn("language script unknown, script checks skipped", "language", lang, "script", r.Script)
+	}
+	return r, err
+}
+
+// blockedChannels is app_config youtube.blocked_channels: channel IDs never
+// to take clips from, in any language.
+func (s *Service) blockedChannels(ctx context.Context) (map[string]bool, error) {
+	ids, err := appconfig.Get(ctx, s.cfg(), "youtube.blocked_channels", []string{})
+	m := map[string]bool{}
+	for _, id := range ids {
+		m[id] = true
+	}
+	return m, err
 }
 
 // RefineLevels sets level from engagement once a clip has

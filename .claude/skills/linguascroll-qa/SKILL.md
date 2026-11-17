@@ -53,7 +53,7 @@ description: Test strategy and release checks for LinguaScroll (Go backend and S
 
 ## Feed quality spot-check (weekly while tuning)
 
-For each of 3 languages, swipe 30 clips as a fresh device and note: wrong-language audio, music share (cap 20%), repeated channels, inappropriate clips. More than 2 wrong-language clips in 30 means tune `youtube_sources.yaml` or `min_language_confidence`.
+For each of 3 languages, swipe 30 clips as a fresh device and note: wrong-language audio, music share (cap 20%), repeated channels, inappropriate clips. More than 2 wrong-language clips in 30 means tune `youtube_sources.yaml`, `min_language_confidence` or `min_script_share`, or block the channel, then `make recheck`.
 
 ## When asked to test something
 

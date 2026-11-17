@@ -24,4 +24,4 @@ For each of es, fr, ja: fresh device (or new install ID), swipe 30 clips, note:
 | fr | /30 | /30 | | | |
 | ja | /30 | /30 | | | |
 
-More than 2 wrong-language clips in 30 means tuning `infra/youtube_sources.yaml` or `youtube.min_language_confidence`. Music above 6 of 30 (20%) means checking `feed.music_cap`. Send findings to the feed-tuning thread.
+More than 2 wrong-language clips in 30 means tuning `infra/youtube_sources.yaml`, `youtube.min_language_confidence` or `youtube.min_script_share`, or adding the channel to `youtube.blocked_channels`, then `make recheck`. Music above 6 of 30 (20%) means checking `feed.music_cap`. Send findings to the feed-tuning thread.
