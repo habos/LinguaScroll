@@ -139,13 +139,13 @@ func TestClassifyLanguage(t *testing.T) {
 		{"nothing to go on", "es", v("", "UCx", "zzz"), false, ""},
 	}
 	for _, c := range cases {
-		got, ok := catalog.ClassifyLanguage(c.v, c.target, seeds, det, 0.8)
+		got, ok := catalog.ClassifyLanguage(c.v, catalog.LanguageRules{Target: c.target, Script: "Latin", SeedChannels: seeds, Detector: det, MinConfidence: 0.8, MinScriptShare: 0.5})
 		if ok != c.ok || got.Source != c.source {
 			t.Errorf("%s: got %+v %v, want ok=%v source=%q", c.name, got, ok, c.ok, c.source)
 		}
 	}
 	// Below the confidence threshold: dropped.
-	if _, ok := catalog.ClassifyLanguage(v("", "UCx", "Hola"), "es", nil, det, 0.99); ok {
+	if _, ok := catalog.ClassifyLanguage(v("", "UCx", "Hola"), catalog.LanguageRules{Target: "es", Script: "Latin", Detector: det, MinConfidence: 0.99}); ok {
 		t.Error("low-confidence detection kept")
 	}
 }

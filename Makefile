@@ -49,6 +49,10 @@ seed: ## Load languages, config defaults, sample clips and YouTube sources
 sources: ## Load infra/youtube_sources.yaml into youtube_sources
 	cd backend && go run ./cmd/sources ../infra/youtube_sources.yaml
 
+.PHONY: recheck
+recheck: ## Re-check every live clip against the current language rules and remove failures
+	cd backend && go run ./cmd/recheck
+
 .PHONY: gen
 gen: ## Generate the Go server interface and copy the spec into the Swift package
 	cd backend && go tool oapi-codegen -config oapi-codegen.yaml ../api/openapi.yaml

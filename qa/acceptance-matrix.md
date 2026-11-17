@@ -51,6 +51,9 @@ Type: **A** = automated test, **M** = manual (script in `manual/`). Status value
 | V3-12 **QA+** | Refresh removes clips that became made-for-kids or age-restricted | A | `catalog.TestRefresh` (kids, adult cases) | pass @042aa26 (PR #6) |
 | V3-13 **QA+** | Removed clips keep only IDs: stats, category, publish time cleared (Y9) | A | `catalog.TestRefresh`; `qa/sql/compliance.sql` Y9 | pass @042aa26 (PR #6), worker run + compliance.sql 0 rows |
 | V3-11 **QA+** | `sql/compliance.sql` returns 0 rows after a refresh run | A | QA run: worker with fake vendors after backdating, 0 rows | pass @042aa26 (PR #6); CI step after a refresh still todo |
+| V3-14 **QA+** | Clips that only mention the language are dropped for every language: hashtag-only titles (even with a matching audio tag), titles mostly in another script, low share of the language's script, `defaultLanguage` mismatch | A | `catalog.TestClassifyLanguageRejectsLanguageMentions`, `TestScriptShare` | pass @263c771 (PR #16) |
+| V3-15 **QA+** | `youtube.blocked_channels` clips are never stored (reject reason `channel`) | A | `catalog.TestSearchDropsBlockedChannelsAndHashtagSpam` | pass @263c771 (PR #16) |
+| V3-16 **QA+** | `make recheck` removes stored clips failing the current rules (data cleared, `hold_reason` language/channel), keeps manual ones; refresh rechecks reported clips | A | `catalog.TestRecheckLanguagesPurgesOldMismatches`, `TestRefreshRechecksReportedClips` | pass @263c771 (PR #16) |
 
 ## V4 Feed, likes, saves and events
 

@@ -38,7 +38,8 @@ description: How to build the LinguaScroll Go backend: API, River worker, Postgr
 River jobs: `youtube_search` (spread through the day), `youtube_refresh` (daily), `youtube_level` (nightly). Details of quotas, filters and the 30-day rule are in the linguascroll-youtube-rules skill; follow it. Summary:
 - Search `type=video`, `videoDuration=short`, `videoEmbeddable=true`, `safeSearch=strict`, `relevanceLanguage`, rotate `publishedAfter`.
 - Keep only <= 180 s, embeddable, not made for kids, not age-restricted, vertical.
-- Language: audio tag match > seed channel > text detection >= `youtube.min_language_confidence` > drop. Record the source.
+- Language (`catalog/language.go`, same rules for every language): hashtag-only title > drop (unless seed channel); audio tag must match and the title must not be mainly in another non-Latin script; seed channel trusted; else `defaultLanguage` must match if set, detection on title + description with hashtags/mentions/links stripped (tags ignored) >= `youtube.min_language_confidence`, and >= `youtube.min_script_share` of title words in the language's `languages.script`. `youtube.blocked_channels` (app_config) never ingested. Record the source.
+- `make recheck` (`cmd/recheck`) re-reads every live clip (1 unit per 50) and removes failures (`hold_reason` language/channel); refresh also rechecks clips flagged `language_recheck` by reports.
 - Level: source hint > `youtube.level_keywords` > null; nightly engagement refinement after 20 completed views overrides.
 - Quota counted per UTC day in Postgres, stop at `youtube.daily_quota_units` (9,000).
 - Code (2026-11-10): `internal/youtube` (Client interface, HTTPClient, `fake` for tests and `FAKE_VENDORS`), `internal/langdetect` (lingua-go, `Fake` in tests), `internal/catalog` (`SearchOnce`, `Refresh`, `RefineLevels`, `ApplySources`, River workers in `jobs.go`). Units are reserved atomically before each call (`reserve`); a search is 100 + 1 per 50 new IDs.
@@ -59,7 +60,7 @@ Ranking lives in the linguascroll-feed-ranking skill. Everything else is `intern
 ## Adding a language (data, not code)
 
 Adding a language must never need a code change. Checklist:
-1. Add a row to the `languages` seed: code, English and native name, script, direction (ltr/rtl), `learnable = true`, launch order.
+1. Add a row to the `languages` seed: code, English and native name, script (a Unicode script name, or `Japanese`; it drives the script check), direction (ltr/rtl), `learnable = true`, launch order.
 2. Add search terms and seed channels (with optional level hints) for it in `infra/youtube_sources.yaml`; run `make sources`.
 3. Add level keywords in that language to `youtube.level_keywords` in `app_config`.
 4. Confirm `LanguageDetector` (lingua-go) supports it; if not, it can still work via audio tag and seed channels, but say so.
